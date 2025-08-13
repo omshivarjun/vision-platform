@@ -1,5 +1,5 @@
-# Multi-stage Dockerfile for Vision Web App
-FROM node:18-alpine as base
+# Frontend Dockerfile
+FROM node:18-alpine AS base
 
 # Set working directory
 WORKDIR /app
@@ -8,25 +8,65 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install --omit=dev
+RUN npm install --only=production
 
 # Copy source code
 COPY . .
 
-# Build the app
+# Build stage
+FROM base AS build
+
+# Install all dependencies including dev dependencies
+RUN npm install
+
+# Build the application
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM node:18-alpine AS production
 
-# Copy built app to nginx
-COPY --from=base /app/dist /usr/share/nginx/html
+# Create app user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install only production dependencies
+RUN npm install --only=production && npm cache clean --force
+
+# Copy built application from build stage
+COPY --from=build --chown=nodejs:nodejs /app/.next ./.next
+COPY --from=build --chown=nodejs:nodejs /app/public ./public
+COPY --from=build --chown=nodejs:nodejs /app/next.config.js ./
+
+# Create necessary directories
+RUN mkdir -p .next/cache && chown -R nodejs:nodejs .next
+
+# Switch to non-root user
+USER nodejs
 
 # Expose port
-EXPOSE 80
+EXPOSE 3000
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
+# Start the application
+CMD ["npm", "start"]
+
+# Development stage
+FROM base AS development
+
+# Install all dependencies
+RUN npm install
+
+# Expose port
+EXPOSE 3000
+
+# Start development server
+CMD ["npm", "run", "dev"]

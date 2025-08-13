@@ -1,0 +1,1296 @@
+openapi: 3.0.3
+info:
+  title: Vision Platform API
+  description: |
+    Complete Vision Platform API for Cross-language Multimodal Translator and Multimodal Accessibility Companion
+    
+    ## Features
+    - **Translation Services**: Text, speech, and image translation with 50+ languages
+    - **Accessibility Features**: Scene description, object detection, navigation assistance
+    - **Real-time Communication**: WebSocket support for live translation and accessibility
+    - **AI Integration**: OpenAI, Hugging Face, and Google Cloud AI services
+    - **User Management**: Authentication, profiles, preferences, and analytics
+    
+    ## Authentication
+    All API endpoints require authentication using JWT tokens. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+    
+    ## Rate Limiting
+    - Free tier: 100 requests/hour
+    - Premium tier: 1000 requests/hour
+    - Admin tier: Unlimited
+    
+    ## Support
+    For API support, contact: api-support@vision-platform.com
+  version: 1.0.0
+  contact:
+    name: Vision Platform API Support
+    email: api-support@vision-platform.com
+    url: https://vision-platform.com/support
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001
+    description: Development server
+  - url: https://api.vision-platform.com
+    description: Production server
+  - url: https://staging-api.vision-platform.com
+    description: Staging server
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Translation
+    description: Text, speech, and image translation services
+  - name: Accessibility
+    description: Accessibility features for visually impaired users
+  - name: Users
+    description: User management and profiles
+  - name: AI Services
+    description: AI model management and service health
+  - name: Media
+    description: Media file upload and processing
+  - name: Navigation
+    description: Navigation assistance and location services
+  - name: Analytics
+    description: Usage analytics and reporting
+  - name: System
+    description: System health and configuration
+
+paths:
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: Check the health status of the API service
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: User registration
+      description: Register a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and get access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get a new access token using refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Logout user and invalidate tokens
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+        '401':
+          description: Unauthorized
+
+  /api/translation/text:
+    post:
+      tags:
+        - Translation
+      summary: Text translation
+      description: Translate text between supported languages
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranslationRequest'
+      responses:
+        '200':
+          description: Translation successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '429':
+          description: Rate limit exceeded
+
+  /api/translation/batch:
+    post:
+      tags:
+        - Translation
+      summary: Batch text translation
+      description: Translate multiple text entries in a single request
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchTranslationRequest'
+      responses:
+        '200':
+          description: Batch translation successful
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TranslationResponse'
+
+  /api/translation/speech:
+    post:
+      tags:
+        - Translation
+      summary: Speech translation
+      description: Translate speech audio to text in target language
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                audio:
+                  type: string
+                  format: binary
+                  description: Audio file (MP3, WAV, M4A)
+                sourceLanguage:
+                  type: string
+                  description: Source language code
+                targetLanguage:
+                  type: string
+                  description: Target language code
+                quality:
+                  type: string
+                  enum: [low, medium, high]
+                  default: medium
+      responses:
+        '200':
+          description: Speech translation successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpeechTranslationResponse'
+
+  /api/translation/image:
+    post:
+      tags:
+        - Translation
+      summary: Image translation
+      description: Extract text from image and translate it
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Image file (JPG, PNG, PDF)
+                sourceLanguage:
+                  type: string
+                  description: Source language code
+                targetLanguage:
+                  type: string
+                  description: Target language code
+                ocrQuality:
+                  type: string
+                  enum: [fast, accurate]
+                  default: accurate
+      responses:
+        '200':
+          description: Image translation successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageTranslationResponse'
+
+  /api/translation/conversation:
+    post:
+      tags:
+        - Translation
+      summary: Start conversation translation
+      description: Initialize real-time conversation translation
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sourceLanguage:
+                  type: string
+                  description: Source language code
+                targetLanguage:
+                  type: string
+                  description: Target language code
+                mode:
+                  type: string
+                  enum: [voice, text]
+                  default: voice
+      responses:
+        '200':
+          description: Conversation started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversationId:
+                    type: string
+                  websocketUrl:
+                    type: string
+
+  /api/translation/memory:
+    get:
+      tags:
+        - Translation
+      summary: Get translation memory
+      description: Retrieve user's translation memory entries
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: sourceLanguage
+          in: query
+          schema:
+            type: string
+        - name: targetLanguage
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Translation memory retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
+
+    post:
+      tags:
+        - Translation
+      summary: Add translation memory entry
+      description: Add a new entry to user's translation memory
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranslationMemoryEntry'
+      responses:
+        '201':
+          description: Entry added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationMemoryEntry'
+
+  /api/accessibility/scene-description:
+    post:
+      tags:
+        - Accessibility
+      summary: Scene description
+      description: Describe the content of an image for visually impaired users
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Image file to analyze
+                detail:
+                  type: string
+                  enum: [basic, detailed, comprehensive]
+                  default: detailed
+                includeObjects:
+                  type: boolean
+                  default: true
+                includeText:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Scene description generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SceneDescriptionResponse'
+
+  /api/accessibility/object-detection:
+    post:
+      tags:
+        - Accessibility
+      summary: Object detection
+      description: Detect and identify objects in an image
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: Image file to analyze
+                confidence:
+                  type: number
+                  minimum: 0.1
+                  maximum: 1.0
+                  default: 0.7
+      responses:
+        '200':
+          description: Objects detected successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectDetectionResponse'
+
+  /api/accessibility/navigation:
+    post:
+      tags:
+        - Accessibility
+      summary: Navigation assistance
+      description: Provide navigation guidance for visually impaired users
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NavigationRequest'
+      responses:
+        '200':
+          description: Navigation guidance provided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NavigationResponse'
+
+  /api/accessibility/voice-command:
+    post:
+      tags:
+        - Accessibility
+      summary: Voice command processing
+      description: Process voice commands for accessibility features
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                audio:
+                  type: string
+                  format: binary
+                  description: Voice command audio
+                language:
+                  type: string
+                  description: Language of the command
+      responses:
+        '200':
+          description: Voice command processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoiceCommandResponse'
+
+  /api/users/profile:
+    get:
+      tags:
+        - Users
+      summary: Get user profile
+      description: Retrieve current user's profile information
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized
+
+    put:
+      tags:
+        - Users
+      summary: Update user profile
+      description: Update current user's profile information
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserProfile'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  /api/users/preferences:
+    get:
+      tags:
+        - Users
+      summary: Get user preferences
+      description: Retrieve current user's preferences
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User preferences retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferences'
+
+    put:
+      tags:
+        - Users
+      summary: Update user preferences
+      description: Update current user's preferences
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPreferences'
+      responses:
+        '200':
+          description: Preferences updated successfully
+
+  /api/ai/models:
+    get:
+      tags:
+        - AI Services
+      summary: Get AI models
+      description: Retrieve available AI models and their status
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: AI models retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AIModel'
+
+  /api/ai/health:
+    get:
+      tags:
+        - AI Services
+      summary: AI service health
+      description: Check the health status of AI services
+      responses:
+        '200':
+          description: AI services health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIServiceHealth'
+
+  /api/media/upload:
+    post:
+      tags:
+        - Media
+      summary: Upload media file
+      description: Upload a media file for processing
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Media file to upload
+                type:
+                  type: string
+                  enum: [image, audio, video, document]
+                  description: Type of media file
+                purpose:
+                  type: string
+                  description: Purpose of the upload
+      responses:
+        '200':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaUploadResponse'
+
+  /api/analytics/usage:
+    get:
+      tags:
+        - Analytics
+      summary: Get usage analytics
+      description: Retrieve user's usage analytics and statistics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month, year]
+            default: month
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Usage analytics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStats'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # Authentication schemas
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+        password:
+          type: string
+          minLength: 8
+          description: User's password
+
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+        password:
+          type: string
+          minLength: 8
+          description: User's password
+        firstName:
+          type: string
+          minLength: 1
+          description: User's first name
+        lastName:
+          type: string
+          minLength: 1
+          description: User's last name
+        role:
+          type: string
+          enum: [user, premium, admin]
+          default: user
+          description: User's role
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token
+        refreshToken:
+          type: string
+          description: JWT refresh token
+        user:
+          $ref: '#/components/schemas/UserProfile'
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          description: JWT refresh token
+
+    # Translation schemas
+    TranslationRequest:
+      type: object
+      required:
+        - sourceText
+        - sourceLanguage
+        - targetLanguage
+      properties:
+        sourceText:
+          type: string
+          maxLength: 5000
+          description: Text to translate
+        sourceLanguage:
+          type: string
+          description: Source language code
+        targetLanguage:
+          type: string
+          description: Target language code
+        context:
+          type: string
+          description: Context for translation
+        quality:
+          type: string
+          enum: [fast, standard, high]
+          default: standard
+
+    TranslationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sourceText:
+          type: string
+        targetText:
+          type: string
+        sourceLanguage:
+          type: string
+        targetLanguage:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        processingTime:
+          type: number
+          description: Processing time in milliseconds
+        timestamp:
+          type: string
+          format: date-time
+
+    BatchTranslationRequest:
+      type: object
+      required:
+        - translations
+      properties:
+        translations:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranslationRequest'
+          maxItems: 100
+
+    SpeechTranslationResponse:
+      type: object
+      properties:
+        transcription:
+          type: string
+          description: Transcribed text
+        translation:
+          $ref: '#/components/schemas/TranslationResponse'
+        audioUrl:
+          type: string
+          description: URL to translated audio file
+
+    ImageTranslationResponse:
+      type: object
+      properties:
+        extractedText:
+          type: string
+          description: Text extracted from image
+        translation:
+          $ref: '#/components/schemas/TranslationResponse'
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    TranslationMemoryEntry:
+      type: object
+      required:
+        - sourceText
+        - sourceLanguage
+        - targetText
+        - targetLanguage
+      properties:
+        sourceText:
+          type: string
+        targetText:
+          type: string
+        sourceLanguage:
+          type: string
+        targetLanguage:
+          type: string
+        context:
+          type: string
+        domain:
+          type: string
+        usageCount:
+          type: integer
+          minimum: 0
+
+    # Accessibility schemas
+    SceneDescriptionResponse:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Scene description
+        objects:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetectedObject'
+        text:
+          type: array
+          items:
+            type: string
+          description: Text found in image
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    DetectedObject:
+      type: object
+      properties:
+        name:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        boundingBox:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+            width:
+              type: number
+            height:
+              type: number
+
+    ObjectDetectionResponse:
+      type: object
+      properties:
+        objects:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetectedObject'
+        totalObjects:
+          type: integer
+          minimum: 0
+
+    NavigationRequest:
+      type: object
+      required:
+        - currentLocation
+        - destination
+      properties:
+        currentLocation:
+          $ref: '#/components/schemas/Location'
+        destination:
+          $ref: '#/components/schemas/Location'
+        mode:
+          type: string
+          enum: [walking, driving, public_transit]
+          default: walking
+        accessibility:
+          type: boolean
+          default: true
+
+    NavigationResponse:
+      type: object
+      properties:
+        route:
+          $ref: '#/components/schemas/Route'
+        instructions:
+          type: array
+          items:
+            type: string
+        estimatedTime:
+          type: number
+          description: Estimated time in minutes
+        distance:
+          type: number
+          description: Distance in meters
+
+    VoiceCommandResponse:
+      type: object
+      properties:
+        command:
+          type: string
+          description: Recognized command
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        action:
+          type: string
+          description: Action to take
+        parameters:
+          type: object
+          additionalProperties: true
+
+    # User schemas
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum: [user, premium, admin]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UpdateUserProfile:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        avatar:
+          type: string
+          format: uri
+
+    UserPreferences:
+      type: object
+      properties:
+        language:
+          type: string
+          description: Preferred language
+        theme:
+          type: string
+          enum: [light, dark, auto]
+        notifications:
+          type: object
+          properties:
+            email:
+              type: boolean
+            push:
+              type: boolean
+            sms:
+              type: boolean
+        accessibility:
+          type: object
+          properties:
+            highContrast:
+              type: boolean
+            largeText:
+              type: boolean
+            screenReader:
+              type: boolean
+
+    # AI schemas
+    AIModel:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [translation, speech-to-text, text-to-speech, image-analysis, object-detection]
+        provider:
+          type: string
+        language:
+          type: string
+        isActive:
+          type: boolean
+        isDefault:
+          type: boolean
+        performance:
+          $ref: '#/components/schemas/ModelPerformance'
+
+    ModelPerformance:
+      type: object
+      properties:
+        accuracy:
+          type: number
+          minimum: 0
+          maximum: 1
+        speed:
+          type: number
+          description: Processing speed in requests per second
+        latency:
+          type: number
+          description: Average latency in milliseconds
+
+    AIServiceHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/AIModel'
+        uptime:
+          type: number
+          description: Service uptime in seconds
+        lastCheck:
+          type: string
+          format: date-time
+
+    # Media schemas
+    MediaUploadResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        url:
+          type: string
+          format: uri
+        size:
+          type: integer
+          description: File size in bytes
+        type:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+
+    # Navigation schemas
+    Location:
+      type: object
+      required:
+        - latitude
+        - longitude
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+        address:
+          $ref: '#/components/schemas/Address'
+
+    Address:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        country:
+          type: string
+        postalCode:
+          type: string
+
+    Route:
+      type: object
+      properties:
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/RouteStep'
+        totalDistance:
+          type: number
+        totalTime:
+          type: number
+
+    RouteStep:
+      type: object
+      properties:
+        instruction:
+          type: string
+        distance:
+          type: number
+        duration:
+          type: number
+        location:
+          $ref: '#/components/schemas/Location'
+
+    # Common schemas
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        uptime:
+          type: number
+          description: Service uptime in seconds
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Error message
+        details:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+
+    PaginatedResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+              minimum: 1
+            limit:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+            pages:
+              type: integer
+              minimum: 1
+
+    UserStats:
+      type: object
+      properties:
+        period:
+          type: string
+        translations:
+          type: integer
+          minimum: 0
+        accessibilityFeatures:
+          type: integer
+          minimum: 0
+        totalUsage:
+          type: integer
+          minimum: 0
+        languages:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+
+# Additional components for WebSocket support
+components:
+  schemas:
+    WebSocketMessage:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [translation, accessibility, navigation, error]
+        data:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+        sessionId:
+          type: string
+
+    TranslationWebSocketMessage:
+      allOf:
+        - $ref: '#/components/schemas/WebSocketMessage'
+        - type: object
+          properties:
+            type:
+              const: translation
+            data:
+              $ref: '#/components/schemas/TranslationResponse'
+
+    AccessibilityWebSocketMessage:
+      allOf:
+        - $ref: '#/components/schemas/WebSocketMessage'
+        - type: object
+          properties:
+            type:
+              const: accessibility
+            data:
+              oneOf:
+                - $ref: '#/components/schemas/SceneDescriptionResponse'
+                - $ref: '#/components/schemas/ObjectDetectionResponse'
+                - $ref: '#/components/schemas/NavigationResponse'

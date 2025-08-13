@@ -1,5 +1,5 @@
-# Multi-stage Dockerfile for Vision API Service
-FROM node:18-alpine as base
+# Backend Dockerfile
+FROM node:18-alpine AS base
 
 # Set working directory
 WORKDIR /app
@@ -7,17 +7,27 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including dev for build)
-RUN npm install
+# Install dependencies
+RUN npm install --only=production
 
 # Copy source code
 COPY . .
+
+# Build stage
+FROM base AS build
+
+# Install all dependencies including dev dependencies
+RUN npm install
 
 # Build the application
 RUN npm run build
 
 # Production stage
-FROM node:18-alpine
+FROM node:18-alpine AS production
+
+# Create app user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
 
 # Set working directory
 WORKDIR /app
@@ -26,48 +36,34 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install only production dependencies
-RUN npm install --omit=dev
+RUN npm install --only=production && npm cache clean --force
 
-# Copy built application from base stage
-COPY --from=base /app/dist ./dist
+# Copy built application from build stage
+COPY --from=build --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=build --chown=nodejs:nodejs /app/uploads ./uploads
+COPY --from=build --chown=nodejs:nodejs /app/logs ./logs
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+# Create necessary directories
+RUN mkdir -p uploads logs && chown -R nodejs:nodejs uploads logs
 
-# Change ownership of the app directory
-RUN chown -R nodejs:nodejs /app
+# Switch to non-root user
 USER nodejs
 
 # Expose port
 EXPOSE 3001
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node healthcheck.js
 
 # Start the application
 CMD ["npm", "start"]
 
-# Stage 6: Development image
-FROM base as development
+# Development stage
+FROM base AS development
 
-# Copy package files
-COPY package*.json ./
-
-# Install all dependencies (including dev)
+# Install all dependencies
 RUN npm install
-
-# Copy source code
-COPY . .
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
-
-# Change ownership of the app directory
-RUN chown -R nodejs:nodejs /app
-USER nodejs
 
 # Expose port
 EXPOSE 3001

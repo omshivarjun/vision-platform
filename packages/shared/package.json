@@ -1,19 +1,27 @@
 {
-  "name": "@vision/shared",
+  "name": "@vision-platform/shared",
   "version": "1.0.0",
-  "description": "Shared types and utilities for Vision Platform",
+  "description": "Shared types, utilities, and models for Vision Platform",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "clean": "rimraf dist"
+    "clean": "rm -rf dist",
+    "test": "jest"
+  },
+  "dependencies": {
+    "zod": "^3.22.4",
+    "date-fns": "^2.30.0",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "typescript": "^5.2.2",
-    "rimraf": "^5.0.1"
+    "typescript": "^5.3.3",
+    "@types/uuid": "^9.0.7",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.11"
   },
   "peerDependencies": {
-    "zod": "^3.22.4"
+    "react": "^18.0.0"
   }
 }

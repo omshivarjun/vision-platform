@@ -1,48 +1,51 @@
 import mongoose from 'mongoose';
-import { logger } from '../utils/logger';
+import Redis from 'redis';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/multimodal-platform';
-
-export async function connectDatabase(): Promise<void> {
+// MongoDB connection
+export async function connectDB() {
   try {
-    await mongoose.connect(MONGODB_URI, {
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      bufferCommands: false,
-    });
-
-    mongoose.connection.on('connected', () => {
-      logger.info('MongoDB connected successfully');
-    });
-
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://admin:password123@localhost:27017/vision_platform?authSource=admin';
+    
+    await mongoose.connect(mongoUri);
+    console.log('✅ Connected to MongoDB');
+    
+    // Handle connection events
     mongoose.connection.on('error', (err) => {
-      logger.error('MongoDB connection error:', err);
+      console.error('MongoDB connection error:', err);
     });
-
+    
     mongoose.connection.on('disconnected', () => {
-      logger.warn('MongoDB disconnected');
+      console.log('MongoDB disconnected');
     });
-
-    // Graceful shutdown
-    process.on('SIGINT', async () => {
-      await mongoose.connection.close();
-      logger.info('MongoDB connection closed through app termination');
-      process.exit(0);
-    });
-
+    
   } catch (error) {
-    logger.error('Failed to connect to MongoDB:', error);
-    throw error;
+    console.error('❌ MongoDB connection failed:', error);
+    process.exit(1);
   }
 }
 
-export async function disconnectDatabase(): Promise<void> {
+// Redis connection
+export async function connectRedis() {
   try {
-    await mongoose.connection.close();
-    logger.info('MongoDB connection closed');
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+    const redisClient = Redis.createClient({ url: redisUrl });
+    
+    await redisClient.connect();
+    console.log('✅ Connected to Redis');
+    
+    // Handle connection events
+    redisClient.on('error', (err) => {
+      console.error('Redis connection error:', err);
+    });
+    
+    redisClient.on('disconnect', () => {
+      console.log('Redis disconnected');
+    });
+    
+    return redisClient;
   } catch (error) {
-    logger.error('Error closing MongoDB connection:', error);
-    throw error;
+    console.error('❌ Redis connection failed:', error);
+    // Don't exit process for Redis failure, continue without caching
+    return null;
   }
 }

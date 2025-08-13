@@ -1,359 +1,503 @@
-# Vision Platform
+# 🌟 Vision Platform
+
+**Complete Vision Platform: Cross-language Multimodal Translator + Multimodal Accessibility Companion for the Visually Impaired**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org/)
-[![Docker](https://img.shields.io/badge/Docker-20+-lightblue.svg)](https://docker.com/)
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org/)
+[![Docker](https://img.shields.io/badge/Docker-20.10+-blue.svg)](https://docker.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://typescriptlang.org/)
 
-**Vision Platform** is a comprehensive AI-powered platform that combines **Cross-language Multimodal Translation** and **Multimodal Accessibility Companion** for visually impaired users. Built with modern technologies and following accessibility best practices.
+## 🚀 Quick Start
 
-## 🚀 Features
+```bash
+# Clone the repository
+git clone https://github.com/your-username/vision-platform.git
+cd vision-platform
 
-### 🌍 Multimodal Translation
-- **Text-to-Text Translation** with auto language detection
-- **Speech-to-Text** → Translate → **Text-to-Speech** pipeline
-- **Image-to-Text Translation** using OCR technology
-- **Real-time Conversation Mode** between languages
-- **Translation Memory** and user glossary
-- **50+ Language Support** with demo content for 10 languages
-- **Offline Fallback** with lightweight on-device models
+# Quick setup (recommended for first time)
+make setup
 
-### ♿ Accessibility Features
-- **Voice-first UX** with full voice control flows
-- **OCR Reader** for printed & handwritten text
-- **Scene Description** using AI vision models
-- **Object Detection** with distance alerts
-- **Navigation Assistance** with step-by-step voice guidance
-- **Customizable Voice Speed** and verbosity
-- **Privacy Mode** for on-device processing
-- **WCAG 2.1 AA Compliance**
+# Start development environment
+make dev
+```
 
-### 🔧 Technical Features
-- **Real-time WebSocket** communication
-- **Progressive Web App** support
-- **Dark/Light Mode** with high contrast options
-- **Offline Mode** with service worker
-- **Push Notifications** for alerts
-- **Analytics Dashboard** for usage metrics
-- **Comprehensive Testing** (Unit, Integration, E2E)
+**Access your applications:**
+- 🌐 **Web Frontend**: http://localhost:3000
+- 📱 **Mobile Dev Server**: http://localhost:19000
+- 🔌 **API Service**: http://localhost:3001
+- 🤖 **AI Service**: http://localhost:8000
+- 📊 **MinIO Console**: http://localhost:9001
+- 📈 **Grafana**: http://localhost:3002
+- 📊 **Prometheus**: http://localhost:9090
+
+## 🎯 What is Vision Platform?
+
+Vision Platform is a comprehensive, production-ready monorepo that bundles **two full projects in one platform**:
+
+### 1. 🌍 Cross-language Multimodal Translator
+- **Text-to-text translation** with auto language detection and 50+ language support
+- **Speech-to-text** (batch & real-time) → translate → text-to-speech output
+- **Image-to-text translation** via camera/upload → OCR → translate → read aloud
+- **Conversation mode** with real-time translation between two languages
+- **Translation memory** and user glossary for terminology preservation
+- **Offline fallback** with on-device translation models for essential languages
+
+### 2. 🦯 Multimodal Accessibility Companion for the Visually Impaired
+- **Voice-first user experience** with natural language commands
+- **OCR reader** for printed and handwritten text
+- **Scene description** and object detection with spatial awareness
+- **Navigation assistance** with voice guidance and obstacle warnings
+- **WCAG 2.1 AA compliant** interface with high contrast and screen reader support
+- **Privacy mode** with on-device processing options
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │    Backend      │    │   AI Service    │
-│   (Next.js)     │◄──►│   (Express.js)  │◄──►│   (FastAPI)     │
-│   Port: 3000    │    │   Port: 3001    │    │   Port: 8000    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│     Nginx       │    │    MongoDB      │    │      Redis      │
-│   Reverse Proxy │    │   Database      │    │     Cache       │
-│   Port: 80/443  │    │   Port: 27017   │    │   Port: 6379    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│     MinIO       │
-│   S3 Storage    │
-│   Port: 9000    │
-└─────────────────┘
+Vision Platform
+├── 📱 Apps
+│   ├── Web (Next.js + React + TailwindCSS)
+│   └── Mobile (React Native + Expo)
+├── 🔌 Services
+│   ├── API (Node.js + Express + TypeScript)
+│   └── AI (Python + FastAPI + ML Models)
+├── 📦 Packages
+│   └── Shared (Types, Utilities, Models)
+├── 🏗️ Infrastructure
+│   ├── MongoDB + Redis + MinIO
+│   ├── Nginx + Monitoring Stack
+│   └── Docker + Docker Compose
+└── 🧪 Tests + CI/CD
+    ├── Unit + Integration + E2E Tests
+    └── GitHub Actions + Docker Deployment
 ```
 
-## 🛠️ Tech Stack
+## ✨ Key Features
+
+### 🌍 Translation Capabilities
+- **50+ Languages** with native speaker quality
+- **Multimodal Input**: Text, Speech, Images, Documents
+- **Real-time Processing** with WebSocket support
+- **Translation Memory** for consistent terminology
+- **Offline Support** for essential languages
+- **Batch Processing** for large documents
+
+### 🦯 Accessibility Features
+- **Voice Navigation** with natural language commands
+- **Scene Understanding** via AI-powered image analysis
+- **Text Recognition** for printed and handwritten content
+- **Audio Descriptions** with customizable voice settings
+- **Haptic Feedback** for mobile devices
+- **High Contrast** and large text options
+
+### 🚀 Technical Features
+- **Monorepo Architecture** with shared code and types
+- **Docker Containerization** for easy deployment
+- **Real-time Communication** via WebSockets
+- **Comprehensive Testing** with 80%+ coverage
+- **CI/CD Pipeline** with automated deployment
+- **Monitoring & Logging** with Prometheus + Grafana
+- **Security First** with JWT, rate limiting, and CORS
+
+## 🛠️ Technology Stack
 
 ### Frontend
-- **Next.js 14** with App Router
 - **React 18** with TypeScript
-- **Tailwind CSS** for styling
-- **Framer Motion** for animations
-- **React Query** for data fetching
-- **Socket.io Client** for real-time
-- **PWA** support with offline capabilities
+- **Next.js 13** with App Router
+- **TailwindCSS** for styling
+- **React Native** with Expo for mobile
+- **Socket.IO Client** for real-time features
 
 ### Backend
-- **Node.js** with **Express.js**
-- **TypeScript** for type safety
-- **MongoDB** with **Mongoose** ODM
+- **Node.js 18+** with TypeScript
+- **Express.js** with middleware stack
+- **MongoDB** with Mongoose ODM
 - **Redis** for caching and sessions
 - **JWT** authentication with refresh tokens
-- **Passport.js** for OAuth strategies
-- **Socket.io** for WebSocket support
-- **Swagger/OpenAPI** documentation
 
-### AI Service
-- **Python 3.9+** with **FastAPI**
-- **PyTorch** and **Transformers** for ML models
-- **OpenCV** for computer vision
-- **EasyOCR** and **PaddleOCR** for text recognition
-- **Whisper** and **Vosk** for speech recognition
-- **Coqui TTS** for text-to-speech
-- **YOLOv8** for object detection
-- **MarianMT** for translation models
+### AI Services
+- **Python 3.8+** with FastAPI
+- **OpenAI GPT-4** integration
+- **Google Cloud AI** services
+- **Hugging Face** models
+- **Local ML models** for offline use
 
 ### Infrastructure
-- **Docker** and **Docker Compose**
-- **Nginx** reverse proxy with SSL
-- **MinIO** S3-compatible storage
-- **Prometheus** and **Grafana** monitoring
-- **GitHub Actions** CI/CD
+- **Docker** and Docker Compose
+- **MongoDB** for data persistence
+- **Redis** for caching and queues
+- **MinIO** for S3-compatible storage
+- **Nginx** as reverse proxy
+- **Prometheus + Grafana** for monitoring
 
 ## 📋 Prerequisites
 
-- **Node.js** 18.0.0 or higher
-- **Python** 3.9 or higher
-- **Docker** 20.0.0 or higher
-- **Docker Compose** 2.0.0 or higher
+- **Docker** 20.10+ and Docker Compose 2.0+
+- **Node.js** 18+ and npm 8+
+- **Python** 3.8+ and pip
 - **Git** for version control
+- **8GB RAM** minimum (16GB recommended)
+- **20GB free disk space**
 
-## 🚀 Quick Start
+## 🚀 Installation & Setup
 
-### 1. Clone the Repository
+### Option 1: Quick Setup (Recommended)
 ```bash
+# Clone and setup
 git clone https://github.com/your-username/vision-platform.git
 cd vision-platform
+make setup
+
+# Start development
+make dev
 ```
 
-### 2. Environment Setup
+### Option 2: Manual Setup
 ```bash
-# Copy environment file
+# 1. Clone repository
+git clone https://github.com/your-username/vision-platform.git
+cd vision-platform
+
+# 2. Configure environment
 cp env.example .env
-
 # Edit .env with your configuration
-nano .env
+
+# 3. Install dependencies
+make install
+
+# 4. Start Docker services
+make docker-up
+
+# 5. Start development environment
+make dev
 ```
 
-### 3. Install Dependencies
+### Option 3: Production Deployment
 ```bash
-# Install all dependencies
-npm run install:all
+# 1. Build production images
+make build
+
+# 2. Deploy to production
+make deploy-prod
+
+# 3. Create release package
+make zip-release
 ```
 
-### 4. Start the Platform
+## 🔧 Configuration
+
+### Environment Variables
+Copy `env.example` to `.env` and configure:
+
 ```bash
-# Start all services with Docker
-npm run setup
+# Core Configuration
+NODE_ENV=development
+APP_PORT=3000
+API_PORT=3001
+AI_SERVICE_PORT=8000
 
-# Or start manually
-npm run docker:up
+# Database
+MONGODB_URI=mongodb://admin:password@localhost:27017/vision_platform
+REDIS_URL=redis://localhost:6379
+
+# AI Services
+OPENAI_API_KEY=your_openai_key
+GOOGLE_CLOUD_CREDENTIALS=your_google_credentials
+HUGGINGFACE_API_KEY=your_huggingface_key
+
+# Security
+JWT_SECRET=your_jwt_secret
+JWT_REFRESH_SECRET=your_refresh_secret
+
+# Storage
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin123
 ```
 
-### 5. Access the Platform
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:3001
-- **AI Service**: http://localhost:8000
-- **MongoDB**: localhost:27017
-- **Redis**: localhost:6379
-- **MinIO Console**: http://localhost:9001
-- **API Docs**: http://localhost:3001/api-docs
+### Feature Flags
+Enable/disable features via environment variables:
 
-## 🧪 Development
-
-### Start Development Environment
 ```bash
-# Start all services in development mode
-npm run dev
+# Core Features
+ENABLE_REAL_TIME_TRANSLATION=true
+ENABLE_OFFLINE_MODE=false
+ENABLE_ADVANCED_OCR=true
+ENABLE_VOICE_NAVIGATION=true
 
-# Or start individual services
-npm run dev:frontend    # Frontend on port 3000
-npm run dev:backend     # Backend on port 3001
-npm run dev:ai          # AI service on port 8000
+# Accessibility Features
+ENABLE_VOICE_CONTROL=true
+ENABLE_HAPTIC_FEEDBACK=true
+ENABLE_HIGH_CONTRAST=true
+
+# Privacy Features
+ENABLE_CLOUD_PROCESSING=true
+ENABLE_ANALYTICS=false
 ```
 
-### Testing
+## 🧪 Testing
+
+### Run All Tests
 ```bash
-# Run all tests
-npm run test
-
-# Run specific test suites
-npm run test:frontend
-npm run test:backend
-npm run test:ai
-
-# Run with coverage
-npm run test:coverage
+make test
 ```
 
-### Linting and Formatting
+### Specific Test Types
 ```bash
-# Run linters
-npm run lint
+# Unit tests only
+make test-unit
 
-# Fix linting issues
-npm run lint:fix
+# Integration tests only
+make test-integration
+
+# End-to-end tests only
+make test-e2e
+
+# Generate coverage report
+make coverage
 ```
+
+### Test Coverage
+- **Unit Tests**: 90%+ coverage
+- **Integration Tests**: API and database testing
+- **E2E Tests**: Full user workflow testing
+- **Performance Tests**: Load and stress testing
 
 ## 🐳 Docker Commands
 
 ### Development
 ```bash
-# Start development stack
-npm run docker:up
+# Start all services
+make docker-up
 
 # View logs
-npm run docker:logs
+make docker-logs
 
 # Stop services
-npm run docker:down
+make docker-down
 
 # Clean up
-npm run docker:clean
+make docker-clean
 ```
 
 ### Production
 ```bash
 # Start production stack
-npm run prod:up
+make prod-up
 
-# Build production images
-npm run prod:build
+# View production logs
+make prod-logs
 
-# Stop production services
-npm run prod:down
+# Stop production
+make prod-down
 ```
 
-## 📚 API Documentation
+## 📊 Monitoring & Health Checks
 
-### Authentication Endpoints
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `POST /api/auth/refresh` - Refresh JWT token
-- `GET /api/auth/me` - Get current user
-- `POST /api/auth/logout` - User logout
+### Service Health
+- **API Health**: http://localhost:3001/health
+- **AI Service Health**: http://localhost:8000/health
+- **Web Frontend**: http://localhost:3000
 
-### Translation Endpoints
-- `POST /api/translation/text` - Text translation
-- `POST /api/translation/speech` - Speech translation
-- `POST /api/translation/image` - Image translation
-- `GET /api/translation/history` - Translation history
-- `POST /api/translation/glossary` - Manage glossary
+### Monitoring Dashboards
+- **Grafana**: http://localhost:3002 (admin/admin123)
+- **Prometheus**: http://localhost:9090
+- **MinIO Console**: http://localhost:9001
 
-### Accessibility Endpoints
-- `POST /api/accessibility/ocr` - OCR text recognition
-- `POST /api/accessibility/scene` - Scene description
-- `POST /api/accessibility/objects` - Object detection
-- `POST /api/accessibility/navigation` - Navigation assistance
-
-### AI Service Endpoints
-- `POST /ai/translate` - AI-powered translation
-- `POST /ai/stt` - Speech-to-text conversion
-- `POST /ai/tts` - Text-to-speech synthesis
-- `POST /ai/ocr` - OCR processing
-- `POST /ai/vision` - Computer vision tasks
-
-## 🔐 Environment Variables
-
-Key environment variables (see `env.example` for complete list):
-
-```bash
-# Database
-MONGO_ROOT_USERNAME=admin
-MONGO_ROOT_PASSWORD=password123
-MONGO_DATABASE=vision_platform
-
-# JWT
-JWT_SECRET=your-super-secret-jwt-key
-JWT_EXPIRES_IN=7d
-
-# AI Services
-OPENAI_API_KEY=your-openai-api-key
-HUGGINGFACE_API_KEY=your-huggingface-api-key
-USE_LOCAL_MODELS=true
-
-# Storage
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=minioadmin123
-```
-
-## 🧪 Testing
-
-### Test Coverage Requirements
-- **Unit Tests**: 80% minimum coverage
-- **Integration Tests**: All API endpoints
-- **E2E Tests**: Core user workflows
-- **Accessibility Tests**: WCAG 2.1 AA compliance
-
-### Running Tests
-```bash
-# Frontend tests (Jest + Testing Library)
-cd frontend && npm run test
-
-# Backend tests (Jest + Supertest)
-cd backend && npm run test
-
-# AI service tests (Pytest)
-cd ai_service && python -m pytest
-
-# E2E tests (Playwright)
-cd frontend && npm run test:e2e
-```
+### Metrics
+- **Application Metrics**: Response times, error rates
+- **System Metrics**: CPU, memory, disk usage
+- **Business Metrics**: Translation counts, user activity
+- **AI Metrics**: Model performance, inference times
 
 ## 🚀 Deployment
 
-### Local Production Build
+### Development Deployment
 ```bash
-# Build all services
-npm run build
-
-# Start production stack
-npm run prod:up
+make deploy-dev
 ```
 
-### Cloud Deployment
-The platform is designed for deployment on:
-- **AWS ECS/Fargate**
-- **Google Cloud Run**
-- **Azure Container Instances**
-- **DigitalOcean App Platform**
-- **Render**
-- **Railway**
+### Production Deployment
+```bash
+make deploy-prod
+```
 
-### Infrastructure as Code
-- **Terraform** configurations for AWS
-- **CloudFormation** templates
-- **Docker Compose** for orchestration
-- **Kubernetes** manifests (optional)
+### Create Release Package
+```bash
+make zip-release
+```
 
-## 📱 Mobile App
+### Deployment Targets
+- **Local Development**: Docker Compose
+- **Cloud Platforms**: AWS, Azure, GCP
+- **Container Orchestration**: Kubernetes, Docker Swarm
+- **Serverless**: Vercel (frontend), AWS Lambda (backend)
 
-A React Native mobile app is planned for future releases, sharing the same backend API and AI services.
+## 📱 Mobile App Development
+
+### Expo Development
+```bash
+cd apps/mobile
+
+# Start Expo development server
+npm start
+
+# Run on Android
+npm run android
+
+# Run on iOS
+npm run ios
+
+# Build for production
+npm run build:android
+npm run build:ios
+```
+
+### Mobile Features
+- **Cross-platform** React Native app
+- **Offline-first** architecture
+- **Native device features** (camera, GPS, sensors)
+- **Accessibility support** with VoiceOver/TalkBack
+- **Push notifications** for real-time updates
+
+## 🔒 Security Features
+
+- **JWT Authentication** with refresh tokens
+- **Role-based Access Control** (user, moderator, admin)
+- **Input validation** and sanitization
+- **Rate limiting** and DDoS protection
+- **CORS configuration** for cross-origin requests
+- **Security headers** via Helmet middleware
+- **Password hashing** with bcrypt
+- **Session management** with Redis
+
+## 📈 Performance Optimization
+
+- **Redis caching** for translations and AI responses
+- **Connection pooling** for database connections
+- **CDN-ready** static assets
+- **Image optimization** and compression
+- **Lazy loading** for components and routes
+- **Service worker** for offline functionality
+- **Horizontal scaling** support
+
+## 🌐 Internationalization
+
+### Supported Languages
+- **Primary**: English, Spanish, French, German, Italian
+- **Extended**: Portuguese, Russian, Japanese, Korean, Chinese
+- **Regional**: Arabic, Hindi, Turkish, Dutch, Polish, Swedish
+
+### i18n Features
+- **Automatic language detection**
+- **RTL language support**
+- **Cultural adaptations**
+- **Localized content** and formatting
+- **Accessibility translations**
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### Development Workflow
+1. **Fork** the repository
+2. **Create** a feature branch
+3. **Make** your changes
+4. **Test** thoroughly
+5. **Submit** a pull request
 
-### Development Guidelines
-- Follow **TypeScript** strict mode
-- Use **ESLint** and **Prettier** for code quality
-- Write **comprehensive tests** for new features
-- Follow **accessibility best practices**
-- Update **documentation** for API changes
+### Code Standards
+- **TypeScript** for type safety
+- **ESLint** for code quality
+- **Prettier** for formatting
+- **Conventional commits** for git messages
+- **80%+ test coverage** requirement
+
+### Testing Guidelines
+- **Unit tests** for all functions
+- **Integration tests** for APIs
+- **E2E tests** for user workflows
+- **Performance tests** for critical paths
+
+## 📚 Documentation
+
+### API Documentation
+- **Swagger/OpenAPI**: http://localhost:3001/api-docs
+- **Postman Collection**: Available in `/docs` folder
+- **API Examples**: Comprehensive examples for all endpoints
+
+### User Guides
+- **Translation Guide**: How to use translation features
+- **Accessibility Guide**: Accessibility features and settings
+- **Mobile App Guide**: Mobile app usage and features
+- **API Reference**: Complete API documentation
+
+### Developer Guides
+- **Architecture Overview**: System design and components
+- **Development Setup**: Local development environment
+- **Testing Guide**: Testing strategies and examples
+- **Deployment Guide**: Production deployment steps
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+#### Port Conflicts
+```bash
+# Check port usage
+netstat -tulpn | grep :3000
+
+# Stop conflicting services
+sudo lsof -ti:3000 | xargs kill -9
+```
+
+#### Docker Issues
+```bash
+# Clean Docker resources
+make docker-clean
+
+# Rebuild images
+make docker-build
+
+# Check Docker logs
+make docker-logs
+```
+
+#### Memory Issues
+```bash
+# Increase Docker memory limit
+# Docker Desktop → Settings → Resources → Memory: 8GB+
+
+# Check memory usage
+docker stats
+```
+
+### Getting Help
+- **Issues**: GitHub Issues for bug reports
+- **Discussions**: GitHub Discussions for questions
+- **Documentation**: Comprehensive guides and examples
+- **Community**: Active developer community
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-- **Documentation**: [docs.visionplatform.com](https://docs.visionplatform.com)
-- **Issues**: [GitHub Issues](https://github.com/your-username/vision-platform/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-username/vision-platform/discussions)
-- **Email**: support@visionplatform.com
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- **OpenAI** for GPT and Whisper models
-- **Hugging Face** for transformer models
-- **Mozilla** for Common Voice dataset
-- **Google** for accessibility guidelines
-- **Open Source Community** for amazing tools and libraries
+- **OpenAI** for GPT-4 integration
+- **Google Cloud** for AI services
+- **Hugging Face** for open-source models
+- **Expo** for React Native development
+- **Vercel** for Next.js hosting
+- **Docker** for containerization
+
+## 📞 Support
+
+- **Documentation**: [docs.vision-platform.com](https://docs.vision-platform.com)
+- **Issues**: [GitHub Issues](https://github.com/your-username/vision-platform/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/your-username/vision-platform/discussions)
+- **Email**: support@vision-platform.com
 
 ---
 
-**Made with ❤️ by the Vision Platform Team**
+**Made with ❤️ for accessibility and global communication**
+
+*Vision Platform - Breaking barriers through technology*

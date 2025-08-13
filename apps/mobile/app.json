@@ -25,10 +25,6 @@
       },
       "package": "com.visionplatform.app"
     },
-    "web": {
-      "favicon": "./assets/favicon.png",
-      "bundler": "metro"
-    },
     "plugins": [],
     "scheme": "vision-platform"
   }

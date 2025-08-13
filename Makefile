@@ -1,247 +1,311 @@
-# Vision Platform Makefile
-# Common development and deployment tasks
+# Vision Platform - Makefile
+# Common tasks for development, building, testing, and deployment
 
-.PHONY: help install dev build test lint format clean docker-up docker-down docker-logs seed release
+.PHONY: help dev build test lint clean docker-up docker-down docker-build docker-logs setup install zip-release
 
 # Default target
 help:
-	@echo "Vision Platform - Available Commands:"
+	@echo "Vision Platform - Available Commands"
+	@echo "===================================="
 	@echo ""
 	@echo "Development:"
-	@echo "  install     Install all dependencies"
-	@echo "  dev         Start development environment"
-	@echo "  build       Build all packages for production"
-	@echo "  test        Run all tests"
-	@echo "  test:unit   Run unit tests only"
-	@echo "  test:integration Run integration tests only"
-	@echo "  test:e2e    Run end-to-end tests only"
-	@echo "  test:coverage Run tests with coverage report"
+	@echo "  dev          - Start development environment"
+	@echo "  install      - Install all dependencies"
+	@echo "  setup        - Initial setup and configuration"
 	@echo ""
-	@echo "Code Quality:"
-	@echo "  lint        Run linting checks"
-	@echo "  lint:fix    Fix linting issues automatically"
-	@echo "  format      Format code with Prettier"
-	@echo "  format:check Check code formatting"
-	@echo "  type-check  Run TypeScript type checking"
+	@echo "Building:"
+	@echo "  build        - Build all packages and services"
+	@echo "  build-web    - Build web frontend"
+	@echo "  build-api    - Build API service"
+	@echo "  build-ai     - Build AI service"
+	@echo "  build-mobile - Build mobile app"
+	@echo ""
+	@echo "Testing:"
+	@echo "  test         - Run all tests"
+	@echo "  test-unit    - Run unit tests only"
+	@echo "  test-integration - Run integration tests only"
+	@echo "  test-e2e     - Run E2E tests only"
+	@echo "  coverage     - Generate test coverage report"
+	@echo ""
+	@echo "Quality:"
+	@echo "  lint         - Run linting on all packages"
+	@echo "  lint-fix     - Fix linting issues automatically"
+	@echo "  type-check   - Run TypeScript type checking"
 	@echo ""
 	@echo "Docker:"
-	@echo "  docker-up   Start all Docker services"
-	@echo "  docker-down Stop all Docker services"
-	@echo "  docker-logs View Docker service logs"
-	@echo "  docker-build Build all Docker images"
-	@echo ""
-	@echo "Database:"
-	@echo "  seed        Seed database with demo data"
-	@echo "  db:reset    Reset database (WARNING: destructive)"
+	@echo "  docker-up    - Start all Docker services"
+	@echo "  docker-down  - Stop all Docker services"
+	@echo "  docker-build - Build all Docker images"
+	@echo "  docker-logs  - Show Docker service logs"
+	@echo "  docker-clean - Clean up Docker resources"
 	@echo ""
 	@echo "Deployment:"
-	@echo "  release     Create production release package"
-	@echo "  deploy      Deploy to production"
-	@echo "  deploy:staging Deploy to staging"
+	@echo "  deploy-dev   - Deploy to development environment"
+	@echo "  deploy-prod  - Deploy to production environment"
+	@echo "  zip-release  - Create deployable ZIP package"
 	@echo ""
-	@echo "Utilities:"
-	@echo "  clean       Clean build artifacts and dependencies"
-	@echo "  status      Show service status"
-	@echo "  logs        View application logs"
+	@echo "Maintenance:"
+	@echo "  clean        - Clean all build artifacts and dependencies"
+	@echo "  reset        - Reset entire development environment"
+	@echo "  update       - Update all dependencies"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make dev           # Start development environment"
+	@echo "  make test coverage # Run tests and generate coverage"
+	@echo "  make docker-up     # Start Docker services"
+	@echo "  make zip-release   # Create deployment package"
 
-# Install dependencies
+# Development commands
+dev:
+	@echo "🚀 Starting Vision Platform development environment..."
+	@chmod +x scripts/dev.sh
+	@./scripts/dev.sh
+
 install:
 	@echo "📦 Installing dependencies..."
-	npm install
-	@echo "🐍 Installing Python dependencies..."
-	cd services/ai && pip install -r requirements.txt
-	@echo "✅ Dependencies installed successfully"
+	@npm install
+	@cd packages/shared && npm install
+	@cd apps/web && npm install
+	@cd apps/mobile && npm install
+	@cd services/api && npm install
+	@cd services/ai && pip install -r requirements.txt
 
-# Start development environment
-dev:
-	@echo "🚀 Starting development environment..."
-	./scripts/dev.sh
+setup:
+	@echo "🔧 Setting up Vision Platform..."
+	@cp env.example .env
+	@echo "✅ Environment file created. Please edit .env with your configuration."
+	@make install
+	@make docker-up
+	@echo "🎉 Setup complete! Run 'make dev' to start development."
 
-# Build all packages
+# Building commands
 build:
-	@echo "🔨 Building all packages..."
-	./scripts/build.sh
+	@echo "🏗️  Building Vision Platform..."
+	@cd packages/shared && npm run build
+	@cd apps/web && npm run build
+	@cd services/api && npm run build
+	@echo "✅ Build complete!"
 
-# Run all tests
+build-web:
+	@echo "🌐 Building web frontend..."
+	@cd apps/web && npm run build
+
+build-api:
+	@echo "📦 Building API service..."
+	@cd services/api && npm run build
+
+build-ai:
+	@echo "🤖 Building AI service..."
+	@cd services/ai && python -m pip install -r requirements.txt
+
+build-mobile:
+	@echo "📱 Building mobile app..."
+	@cd apps/mobile && npm run build
+
+# Testing commands
 test:
 	@echo "🧪 Running all tests..."
-	./scripts/test.sh
+	@chmod +x scripts/test.sh
+	@./scripts/test.sh
 
-# Run unit tests only
-test:unit:
+test-unit:
 	@echo "🧪 Running unit tests..."
-	npm run test:unit
+	@cd packages/shared && npm run test
+	@cd apps/web && npm run test
+	@cd services/api && npm run test
 
-# Run integration tests only
-test:integration:
-	@echo "🧪 Running integration tests..."
-	npm run test:integration
+test-integration:
+	@echo "🔗 Running integration tests..."
+	@cd services/api && npm run test:integration
 
-# Run end-to-end tests only
-test:e2e:
-	@echo "🧪 Running end-to-end tests..."
-	npm run test:e2e
+test-e2e:
+	@echo "🌐 Running E2E tests..."
+	@cd apps/web && npm run test:e2e
 
-# Run tests with coverage
-test:coverage:
-	@echo "🧪 Running tests with coverage..."
-	./scripts/test.sh --coverage
+coverage:
+	@echo "📊 Generating coverage report..."
+	@cd packages/shared && npm run test -- --coverage
+	@cd apps/web && npm run test -- --coverage
+	@cd services/api && npm run test -- --coverage
 
-# Run linting
+# Quality commands
 lint:
-	@echo "🔍 Running linting checks..."
-	npm run lint
+	@echo "🔍 Running linting..."
+	@cd packages/shared && npm run lint
+	@cd apps/web && npm run lint
+	@cd services/api && npm run lint
 
-# Fix linting issues
-lint:fix:
+lint-fix:
 	@echo "🔧 Fixing linting issues..."
-	npm run lint:fix
+	@cd packages/shared && npm run lint:fix
+	@cd apps/web && npm run lint:fix
+	@cd services/api && npm run lint:fix
 
-# Format code
-format:
-	@echo "✨ Formatting code..."
-	npm run format
-
-# Check code formatting
-format:check:
-	@echo "🔍 Checking code formatting..."
-	npm run format:check
-
-# Type checking
 type-check:
 	@echo "🔍 Running TypeScript type checking..."
-	npm run type-check
+	@cd packages/shared && npm run type-check
+	@cd apps/web && npm run type-check
+	@cd services/api && npm run type-check
 
-# Start Docker services
+# Docker commands
 docker-up:
 	@echo "🐳 Starting Docker services..."
-	docker-compose up -d
+	@docker-compose up -d
 
-# Stop Docker services
 docker-down:
-	@echo "🐳 Stopping Docker services..."
-	docker-compose down
+	@echo "🛑 Stopping Docker services..."
+	@docker-compose down
 
-# View Docker logs
-docker-logs:
-	@echo "📋 Viewing Docker logs..."
-	docker-compose logs -f
-
-# Build Docker images
 docker-build:
-	@echo "🔨 Building Docker images..."
-	docker-compose build
+	@echo "🏗️  Building Docker images..."
+	@docker-compose build
 
-# Seed database
-seed:
-	@echo "🌱 Seeding database with demo data..."
-	node scripts/seed.js
+docker-logs:
+	@echo "📊 Showing Docker logs..."
+	@docker-compose logs -f
 
-# Reset database (WARNING: destructive)
-db:reset:
-	@echo "⚠️  WARNING: This will delete all data!"
-	@read -p "Are you sure? Type 'yes' to continue: " confirm; \
-	if [ "$$confirm" = "yes" ]; then \
-		echo "🗑️  Resetting database..."; \
-		docker-compose exec mongodb mongosh vision --eval "db.dropDatabase()"; \
-		echo "✅ Database reset complete"; \
-	else \
-		echo "❌ Database reset cancelled"; \
-	fi
+docker-clean:
+	@echo "🧹 Cleaning Docker resources..."
+	@docker-compose down -v --remove-orphans
+	@docker system prune -f
 
-# Create release package
-release:
-	@echo "📦 Creating production release package..."
-	./scripts/zip_release.sh
+# Deployment commands
+deploy-dev:
+	@echo "🚀 Deploying to development environment..."
+	@make docker-up
+	@echo "✅ Development deployment complete!"
 
-# Deploy to production
-deploy:
-	@echo "🚀 Deploying to production..."
-	./scripts/deploy.sh
+deploy-prod:
+	@echo "🏭 Deploying to production environment..."
+	@chmod +x scripts/build.sh
+	@./scripts/build.sh
+	@docker-compose -f docker-compose.prod.yml up -d
+	@echo "✅ Production deployment complete!"
 
-# Deploy to staging
-deploy:staging:
-	@echo "🚀 Deploying to staging..."
-	./scripts/deploy.sh --staging
+zip-release:
+	@echo "📦 Creating release package..."
+	@chmod +x scripts/zip_release.sh
+	@./scripts/zip_release.sh
 
-# Clean build artifacts
+# Maintenance commands
 clean:
 	@echo "🧹 Cleaning build artifacts..."
-	rm -rf node_modules
-	rm -rf */node_modules
-	rm -rf */dist
-	rm -rf */build
-	rm -rf */coverage
-	rm -rf */uploads
-	rm -rf release-*
-	rm -f vision-monorepo-*.zip
-	@echo "✅ Cleanup complete"
+	@rm -rf node_modules
+	@cd packages/shared && rm -rf node_modules dist
+	@cd apps/web && rm -rf node_modules .next dist
+	@cd apps/mobile && rm -rf node_modules
+	@cd services/api && rm -rf node_modules dist
+	@cd services/ai && rm -rf __pycache__ venv
+	@rm -rf coverage test-results logs
+	@echo "✅ Clean complete!"
 
-# Show service status
+reset:
+	@echo "🔄 Resetting development environment..."
+	@make docker-clean
+	@make clean
+	@make setup
+	@echo "✅ Reset complete!"
+
+update:
+	@echo "🔄 Updating dependencies..."
+	@npm update
+	@cd packages/shared && npm update
+	@cd apps/web && npm update
+	@cd apps/mobile && npm update
+	@cd services/api && npm update
+	@cd services/ai && pip install --upgrade -r requirements.txt
+	@echo "✅ Update complete!"
+
+# Utility commands
 status:
 	@echo "📊 Service Status:"
-	@echo "Docker services:"
-	docker-compose ps
-	@echo ""
-	@echo "Port usage:"
-	netstat -tulpn 2>/dev/null | grep -E ':(3000|3001|8000|27017|6379|9000)' || echo "No services running on expected ports"
+	@docker-compose ps
 
-# View application logs
 logs:
-	@echo "📋 Application logs:"
-	@echo "API Service:"
-	docker-compose logs -f api --tail=50
-	@echo ""
-	@echo "AI Service:"
-	docker-compose logs -f ai-service --tail=50
-	@echo ""
-	@echo "Web App:"
-	docker-compose logs -f web --tail=50
+	@echo "📊 Service Logs:"
+	@docker-compose logs -f
 
-# Health check
 health:
 	@echo "🏥 Health Check:"
-	@echo "API Health:"
-	curl -f http://localhost:3001/health || echo "❌ API service not responding"
-	@echo ""
-	@echo "AI Service Health:"
-	curl -f http://localhost:8000/health || echo "❌ AI service not responding"
-	@echo ""
-	@echo "Web App:"
-	curl -f http://localhost:3000 || echo "❌ Web app not responding"
+	@curl -s http://localhost:3001/health || echo "API service not responding"
+	@curl -s http://localhost:8000/health || echo "AI service not responding"
+	@curl -s http://localhost:3000 || echo "Web frontend not responding"
 
-# Quick setup for new developers
-setup: install docker-up seed
-	@echo "🎉 Development environment setup complete!"
-	@echo "Access your applications at:"
-	@echo "  Web App: http://localhost:3000"
-	@echo "  API: http://localhost:3001"
-	@echo "  API Docs: http://localhost:3001/api-docs"
-	@echo "  AI Service: http://localhost:8000"
+# Production commands
+prod-up:
+	@echo "🏭 Starting production environment..."
+	@docker-compose -f docker-compose.prod.yml up -d
 
-# Production deployment checklist
-deploy:checklist:
-	@echo "📋 Production Deployment Checklist:"
-	@echo "1. ✅ All tests passing"
-	@echo "2. ✅ Security scan completed"
-	@echo "3. ✅ Docker images built and tested"
-	@echo "4. ✅ Environment variables configured"
-	@echo "5. ✅ Database migrations applied"
-	@echo "6. ✅ SSL certificates installed"
-	@echo "7. ✅ Monitoring configured"
-	@echo "8. ✅ Backup strategy in place"
-	@echo "9. ✅ Rollback plan ready"
-	@echo "10. ✅ Team notified of deployment"
+prod-down:
+	@echo "🛑 Stopping production environment..."
+	@docker-compose -f docker-compose.prod.yml down
 
-# Development shortcuts
-dev:short: docker-up
-	@echo "🚀 Starting development services..."
-	npm run dev
+prod-logs:
+	@echo "📊 Production logs..."
+	@docker-compose -f docker-compose.prod.yml logs -f
 
-# Stop development
-dev:stop: docker-down
-	@echo "🛑 Development environment stopped"
+# Monitoring commands
+monitor:
+	@echo "📊 Opening monitoring dashboards..."
+	@echo "Grafana: http://localhost:3002 (admin/admin123)"
+	@echo "Prometheus: http://localhost:9090"
+	@echo "MinIO Console: http://localhost:9001 (minioadmin/minioadmin123)"
 
-# Restart development
-dev:restart: dev:stop dev:short
-	@echo "🔄 Development environment restarted"
+# Database commands
+db-backup:
+	@echo "💾 Creating database backup..."
+	@docker exec vision-mongodb mongodump --out /data/backup
+	@docker cp vision-mongodb:/data/backup ./backups/$(shell date +%Y%m%d_%H%M%S)
+	@echo "✅ Backup complete!"
+
+db-restore:
+	@echo "📥 Restoring database..."
+	@docker exec vision-mongodb mongorestore /data/backup
+	@echo "✅ Restore complete!"
+
+# AI Service commands
+ai-models:
+	@echo "🤖 Managing AI models..."
+	@cd services/ai && python -m scripts.model_manager
+
+# Quick commands for common workflows
+quick-start: install docker-up dev
+
+quick-test: lint type-check test-unit
+
+quick-build: build docker-build
+
+quick-deploy: build docker-build docker-up
+
+# Help for specific areas
+help-dev:
+	@echo "Development Commands:"
+	@echo "  make dev           - Start development environment"
+	@echo "  make install       - Install dependencies"
+	@echo "  make setup         - Initial setup"
+	@echo "  make docker-up     - Start Docker services"
+	@echo "  make docker-logs   - View logs"
+
+help-test:
+	@echo "Testing Commands:"
+	@echo "  make test          - Run all tests"
+	@echo "  make test-unit     - Unit tests only"
+	@echo "  make test-integration - Integration tests"
+	@echo "  make test-e2e      - End-to-end tests"
+	@echo "  make coverage      - Generate coverage report"
+
+help-docker:
+	@echo "Docker Commands:"
+	@echo "  make docker-up     - Start services"
+	@echo "  make docker-down   - Stop services"
+	@echo "  make docker-build  - Build images"
+	@echo "  make docker-logs   - View logs"
+	@echo "  make docker-clean  - Clean resources"
+
+help-deploy:
+	@echo "Deployment Commands:"
+	@echo "  make deploy-dev    - Deploy to development"
+	@echo "  make deploy-prod   - Deploy to production"
+	@echo "  make zip-release   - Create release package"
+	@echo "  make prod-up       - Start production"
+	@echo "  make prod-down     - Stop production"

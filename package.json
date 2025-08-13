@@ -1,62 +1,32 @@
 {
   "name": "vision-platform",
   "version": "1.0.0",
-  "description": "Vision Platform - Multimodal Translation & Accessibility Platform",
+  "description": "AI-powered platform for multimodal translation and accessibility",
   "private": true,
-  "workspaces": [
-    "frontend",
-    "backend",
-    "ai_service"
-  ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:ai\"",
-    "dev:frontend": "cd frontend && npm run dev",
-    "dev:backend": "cd backend && npm run dev",
-    "dev:ai": "cd ai_service && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
-    "build": "npm run build:backend && npm run build:frontend",
-    "build:frontend": "cd frontend && npm run build",
-    "build:backend": "cd backend && npm run build",
-    "test": "npm run test:frontend && npm run test:backend && npm run test:ai",
-    "test:frontend": "cd frontend && npm run test",
-    "test:backend": "cd backend && npm run test",
-    "test:ai": "cd ai_service && python -m pytest",
-    "lint": "npm run lint:frontend && npm run lint:backend",
-    "lint:frontend": "cd frontend && npm run lint",
-    "lint:backend": "cd backend && npm run lint",
-    "lint:fix": "npm run lint:fix:frontend && npm run lint:fix:backend",
-    "lint:fix:frontend": "cd frontend && npm run lint:fix",
-    "lint:fix:backend": "cd backend && npm run lint:fix",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:build": "docker-compose build",
-    "docker:logs": "docker-compose logs -f",
-    "docker:clean": "docker-compose down -v --remove-orphans",
-    "prod:up": "docker-compose -f docker-compose.prod.yml up -d",
-    "prod:down": "docker-compose -f docker-compose.prod.yml down",
-    "prod:build": "docker-compose -f docker-compose.prod.yml build",
-    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
-    "setup": "npm run install:all && npm run docker:up",
-    "clean": "npm run docker:clean && rm -rf node_modules frontend/node_modules backend/node_modules"
-  },
-  "devDependencies": {
-    "concurrently": "8.2.2"
-  },
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
+    "dev": "docker-compose up -d",
+    "platform": "powershell -ExecutionPolicy Bypass -File open-platform.ps1",
+    "start": "docker-compose up -d && powershell -ExecutionPolicy Bypass -File open-platform.ps1",
+    "stop": "docker-compose down",
+    "status": "docker-compose ps",
+    "logs": "docker-compose logs -f",
+    "build": "docker-compose build",
+    "restart": "docker-compose restart",
+    "clean": "docker-compose down --volumes --remove-orphans"
   },
   "keywords": [
-    "vision",
-    "platform",
+    "ai",
     "translation",
     "accessibility",
-    "ai",
-    "multimodal",
-    "nextjs",
-    "express",
-    "fastapi",
-    "docker"
+    "vision",
+    "platform",
+    "docker",
+    "monorepo"
   ],
   "author": "Vision Platform Team",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
 }
