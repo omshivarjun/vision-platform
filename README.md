@@ -1,280 +1,339 @@
 # Vision Platform
 
-A comprehensive, production-ready monorepo for **Cross-language Multimodal Translator** and **Multimodal Accessibility Companion for the Visually Impaired**.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org/)
+[![Docker](https://img.shields.io/badge/Docker-20+-lightblue.svg)](https://docker.com/)
+
+**Vision Platform** is a comprehensive AI-powered platform that combines **Cross-language Multimodal Translation** and **Multimodal Accessibility Companion** for visually impaired users. Built with modern technologies and following accessibility best practices.
 
 ## 🚀 Features
 
-### Core Capabilities
-- **Multimodal Translation**: Text, speech, and image translation between 50+ languages
-- **AI-Powered Accessibility**: Real-time scene description, object detection, and navigation assistance
-- **Cross-Platform**: Web (React + Vite), Mobile (React Native + Expo), and API services
-- **WCAG 2.1 AA Compliant**: Built with accessibility as a first-class concern
+### 🌍 Multimodal Translation
+- **Text-to-Text Translation** with auto language detection
+- **Speech-to-Text** → Translate → **Text-to-Speech** pipeline
+- **Image-to-Text Translation** using OCR technology
+- **Real-time Conversation Mode** between languages
+- **Translation Memory** and user glossary
+- **50+ Language Support** with demo content for 10 languages
+- **Offline Fallback** with lightweight on-device models
 
-### Technical Features
-- **Monorepo Architecture**: Yarn workspaces with shared packages
-- **Dockerized Services**: Complete containerization for development and production
-- **Real-time Communication**: Socket.io for live translations and accessibility features
-- **Comprehensive Testing**: Unit, integration, and E2E tests with 80%+ coverage
-- **CI/CD Pipeline**: GitHub Actions for automated testing and deployment
+### ♿ Accessibility Features
+- **Voice-first UX** with full voice control flows
+- **OCR Reader** for printed & handwritten text
+- **Scene Description** using AI vision models
+- **Object Detection** with distance alerts
+- **Navigation Assistance** with step-by-step voice guidance
+- **Customizable Voice Speed** and verbosity
+- **Privacy Mode** for on-device processing
+- **WCAG 2.1 AA Compliance**
+
+### 🔧 Technical Features
+- **Real-time WebSocket** communication
+- **Progressive Web App** support
+- **Dark/Light Mode** with high contrast options
+- **Offline Mode** with service worker
+- **Push Notifications** for alerts
+- **Analytics Dashboard** for usage metrics
+- **Comprehensive Testing** (Unit, Integration, E2E)
 
 ## 🏗️ Architecture
 
 ```
-Vision/
-├── apps/
-│   ├── web/                 # React + Vite web application
-│   └── mobile/             # React Native + Expo mobile app
-├── services/
-│   ├── api/                # Node.js + Express API service
-│   └── ai/                 # Python + FastAPI AI microservice
-├── packages/
-│   └── shared/             # Shared types and utilities
-├── infrastructure/          # Docker, deployment configs
-├── scripts/                 # Build and deployment scripts
-└── tests/                   # E2E and integration tests
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │    Backend      │    │   AI Service    │
+│   (Next.js)     │◄──►│   (Express.js)  │◄──►│   (FastAPI)     │
+│   Port: 3000    │    │   Port: 3001    │    │   Port: 8000    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│     Nginx       │    │    MongoDB      │    │      Redis      │
+│   Reverse Proxy │    │   Database      │    │     Cache       │
+│   Port: 80/443  │    │   Port: 27017   │    │   Port: 6379    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│     MinIO       │
+│   S3 Storage    │
+│   Port: 9000    │
+└─────────────────┘
 ```
 
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **Web**: React 18, TypeScript, Vite, TailwindCSS
-- **Mobile**: React Native, Expo, TypeScript
-- **State Management**: Zustand, React Query
-- **UI Components**: Custom accessible component library
+- **Next.js 14** with App Router
+- **React 18** with TypeScript
+- **Tailwind CSS** for styling
+- **Framer Motion** for animations
+- **React Query** for data fetching
+- **Socket.io Client** for real-time
+- **PWA** support with offline capabilities
 
 ### Backend
-- **API Service**: Node.js, Express, TypeScript, MongoDB
-- **AI Service**: Python, FastAPI, PyTorch, Transformers
-- **Database**: MongoDB with Mongoose
-- **Cache**: Redis
-- **Storage**: AWS S3 (with MinIO for local dev)
+- **Node.js** with **Express.js**
+- **TypeScript** for type safety
+- **MongoDB** with **Mongoose** ODM
+- **Redis** for caching and sessions
+- **JWT** authentication with refresh tokens
+- **Passport.js** for OAuth strategies
+- **Socket.io** for WebSocket support
+- **Swagger/OpenAPI** documentation
+
+### AI Service
+- **Python 3.9+** with **FastAPI**
+- **PyTorch** and **Transformers** for ML models
+- **OpenCV** for computer vision
+- **EasyOCR** and **PaddleOCR** for text recognition
+- **Whisper** and **Vosk** for speech recognition
+- **Coqui TTS** for text-to-speech
+- **YOLOv8** for object detection
+- **MarianMT** for translation models
 
 ### Infrastructure
-- **Containerization**: Docker, Docker Compose
-- **CI/CD**: GitHub Actions
-- **Monitoring**: Sentry, Winston, Prometheus
-- **Deployment**: AWS ECS/Fargate, Vercel, Render
+- **Docker** and **Docker Compose**
+- **Nginx** reverse proxy with SSL
+- **MinIO** S3-compatible storage
+- **Prometheus** and **Grafana** monitoring
+- **GitHub Actions** CI/CD
+
+## 📋 Prerequisites
+
+- **Node.js** 18.0.0 or higher
+- **Python** 3.9 or higher
+- **Docker** 20.0.0 or higher
+- **Docker Compose** 2.0.0 or higher
+- **Git** for version control
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Node.js 18+
-- Python 3.11+
-- Docker & Docker Compose
-- Yarn or npm
-
-### 1. Clone and Setup
+### 1. Clone the Repository
 ```bash
-git clone <repository-url>
-cd Vision
-yarn install
+git clone https://github.com/your-username/vision-platform.git
+cd vision-platform
 ```
 
-### 2. Environment Configuration
+### 2. Environment Setup
 ```bash
-cp .env.example .env
+# Copy environment file
+cp env.example .env
+
 # Edit .env with your configuration
+nano .env
 ```
 
-### 3. Start All Services
+### 3. Install Dependencies
+```bash
+# Install all dependencies
+npm run install:all
+```
+
+### 4. Start the Platform
 ```bash
 # Start all services with Docker
-docker-compose up -d
+npm run setup
 
-# Or use the convenience script
-./scripts/dev.sh
+# Or start manually
+npm run docker:up
 ```
 
-### 4. Access Applications
-- **Web App**: http://localhost:5173
-- **Mobile App**: Expo Go app (scan QR code)
-- **API**: http://localhost:3001
+### 5. Access the Platform
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:3001
 - **AI Service**: http://localhost:8000
 - **MongoDB**: localhost:27017
 - **Redis**: localhost:6379
-- **MinIO**: http://localhost:9000
+- **MinIO Console**: http://localhost:9001
+- **API Docs**: http://localhost:3001/api-docs
 
-## 📱 Mobile App Development
+## 🧪 Development
 
-### Start Mobile App
+### Start Development Environment
 ```bash
-cd apps/mobile
-yarn start
+# Start all services in development mode
+npm run dev
+
+# Or start individual services
+npm run dev:frontend    # Frontend on port 3000
+npm run dev:backend     # Backend on port 3001
+npm run dev:ai          # AI service on port 8000
 ```
 
-### Run on Device
-1. Install Expo Go on your device
-2. Scan the QR code from the terminal
-3. The app will load on your device
-
-## 🌐 Web App Development
-
-### Start Web App
+### Testing
 ```bash
-cd apps/web
-yarn dev
+# Run all tests
+npm run test
+
+# Run specific test suites
+npm run test:frontend
+npm run test:backend
+npm run test:ai
+
+# Run with coverage
+npm run test:coverage
 ```
 
-### Build for Production
+### Linting and Formatting
 ```bash
-yarn build
-yarn preview
-```
+# Run linters
+npm run lint
 
-## 🔧 Development Commands
-
-### Root Level Commands
-```bash
-yarn dev          # Start all services
-yarn build        # Build all packages
-yarn test         # Run all tests
-yarn lint         # Lint all packages
-yarn format       # Format all code
-```
-
-### Individual Service Commands
-```bash
-# API Service
-cd services/api
-yarn dev          # Start API in development mode
-yarn test         # Run API tests
-
-# AI Service
-cd services/ai
-yarn dev          # Start AI service
-yarn test         # Run AI tests
-
-# Web App
-cd apps/web
-yarn dev          # Start web app
-yarn build        # Build web app
-
-# Mobile App
-cd apps/mobile
-yarn start        # Start Expo development server
-yarn android      # Run on Android emulator
-yarn ios          # Run on iOS simulator
+# Fix linting issues
+npm run lint:fix
 ```
 
 ## 🐳 Docker Commands
 
 ### Development
 ```bash
-# Start all services
-docker-compose up -d
-
-# Start specific service
-docker-compose up -d api
-docker-compose up -d ai-service
+# Start development stack
+npm run docker:up
 
 # View logs
-docker-compose logs -f api
-docker-compose logs -f ai-service
+npm run docker:logs
 
-# Rebuild and restart
-docker-compose up -d --build api
+# Stop services
+npm run docker:down
+
+# Clean up
+npm run docker:clean
 ```
 
 ### Production
 ```bash
-# Use production compose file
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Start production stack
+npm run prod:up
+
+# Build production images
+npm run prod:build
+
+# Stop production services
+npm run prod:down
+```
+
+## 📚 API Documentation
+
+### Authentication Endpoints
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/login` - User login
+- `POST /api/auth/refresh` - Refresh JWT token
+- `GET /api/auth/me` - Get current user
+- `POST /api/auth/logout` - User logout
+
+### Translation Endpoints
+- `POST /api/translation/text` - Text translation
+- `POST /api/translation/speech` - Speech translation
+- `POST /api/translation/image` - Image translation
+- `GET /api/translation/history` - Translation history
+- `POST /api/translation/glossary` - Manage glossary
+
+### Accessibility Endpoints
+- `POST /api/accessibility/ocr` - OCR text recognition
+- `POST /api/accessibility/scene` - Scene description
+- `POST /api/accessibility/objects` - Object detection
+- `POST /api/accessibility/navigation` - Navigation assistance
+
+### AI Service Endpoints
+- `POST /ai/translate` - AI-powered translation
+- `POST /ai/stt` - Speech-to-text conversion
+- `POST /ai/tts` - Text-to-speech synthesis
+- `POST /ai/ocr` - OCR processing
+- `POST /ai/vision` - Computer vision tasks
+
+## 🔐 Environment Variables
+
+Key environment variables (see `env.example` for complete list):
+
+```bash
+# Database
+MONGO_ROOT_USERNAME=admin
+MONGO_ROOT_PASSWORD=password123
+MONGO_DATABASE=vision_platform
+
+# JWT
+JWT_SECRET=your-super-secret-jwt-key
+JWT_EXPIRES_IN=7d
+
+# AI Services
+OPENAI_API_KEY=your-openai-api-key
+HUGGINGFACE_API_KEY=your-huggingface-api-key
+USE_LOCAL_MODELS=true
+
+# Storage
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=minioadmin123
 ```
 
 ## 🧪 Testing
 
-### Run All Tests
+### Test Coverage Requirements
+- **Unit Tests**: 80% minimum coverage
+- **Integration Tests**: All API endpoints
+- **E2E Tests**: Core user workflows
+- **Accessibility Tests**: WCAG 2.1 AA compliance
+
+### Running Tests
 ```bash
-yarn test
+# Frontend tests (Jest + Testing Library)
+cd frontend && npm run test
+
+# Backend tests (Jest + Supertest)
+cd backend && npm run test
+
+# AI service tests (Pytest)
+cd ai_service && python -m pytest
+
+# E2E tests (Playwright)
+cd frontend && npm run test:e2e
 ```
-
-### Test Coverage
-```bash
-yarn test:coverage
-```
-
-### E2E Tests
-```bash
-yarn test:e2e
-```
-
-## 📊 API Documentation
-
-### Swagger/OpenAPI
-- **API Service**: http://localhost:3001/api-docs
-- **AI Service**: http://localhost:8000/docs
-
-### Health Checks
-- **API Service**: http://localhost:3001/health
-- **AI Service**: http://localhost:8000/health
-
-## 🔐 Authentication & Security
-
-- **JWT-based authentication** with refresh tokens
-- **OAuth2** integration for social login
-- **Role-based access control** (RBAC)
-- **Rate limiting** and request validation
-- **Input sanitization** and XSS protection
-- **CORS** configuration
-- **Helmet.js** security headers
-
-## 🌍 Internationalization
-
-- **Multi-language support** (50+ languages)
-- **Sample translations** for 10 languages
-- **RTL language support**
-- **Localized content** and formatting
-
-## ♿ Accessibility Features
-
-- **WCAG 2.1 AA compliance**
-- **Screen reader support**
-- **Keyboard navigation**
-- **High contrast mode**
-- **Large text options**
-- **Voice commands**
-- **Audio feedback**
-
-## 📈 Monitoring & Logging
-
-- **Structured logging** with Winston
-- **Error tracking** with Sentry
-- **Performance monitoring** with Prometheus
-- **Health checks** for all services
-- **Request/response logging**
 
 ## 🚀 Deployment
 
-### Production Deployment
+### Local Production Build
 ```bash
-# Build and package
-yarn build
-./scripts/zip_release.sh
+# Build all services
+npm run build
 
-# Deploy to cloud
-./scripts/deploy.sh
+# Start production stack
+npm run prod:up
 ```
 
-### Cloud Platforms
-- **AWS**: ECS/Fargate with Application Load Balancer
-- **Vercel**: Web app deployment
-- **Render**: API and AI service deployment
+### Cloud Deployment
+The platform is designed for deployment on:
+- **AWS ECS/Fargate**
+- **Google Cloud Run**
+- **Azure Container Instances**
+- **DigitalOcean App Platform**
+- **Render**
+- **Railway**
+
+### Infrastructure as Code
+- **Terraform** configurations for AWS
+- **CloudFormation** templates
+- **Docker Compose** for orchestration
+- **Kubernetes** manifests (optional)
+
+## 📱 Mobile App
+
+A React Native mobile app is planned for future releases, sharing the same backend API and AI services.
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
-6. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ### Development Guidelines
-- Follow TypeScript strict mode
-- Use ESLint and Prettier
-- Write comprehensive tests
-- Follow accessibility guidelines
-- Document new features
+- Follow **TypeScript** strict mode
+- Use **ESLint** and **Prettier** for code quality
+- Write **comprehensive tests** for new features
+- Follow **accessibility best practices**
+- Update **documentation** for API changes
 
 ## 📄 License
 
@@ -282,19 +341,19 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-- **Documentation**: [Wiki](link-to-wiki)
-- **Issues**: [GitHub Issues](link-to-issues)
-- **Discussions**: [GitHub Discussions](link-to-discussions)
+- **Documentation**: [docs.visionplatform.com](https://docs.visionplatform.com)
+- **Issues**: [GitHub Issues](https://github.com/your-username/vision-platform/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/your-username/vision-platform/discussions)
 - **Email**: support@visionplatform.com
 
 ## 🙏 Acknowledgments
 
-- OpenAI for language models
-- Hugging Face for transformer models
-- Expo team for React Native tooling
-- MongoDB team for database technology
-- All contributors and maintainers
+- **OpenAI** for GPT and Whisper models
+- **Hugging Face** for transformer models
+- **Mozilla** for Common Voice dataset
+- **Google** for accessibility guidelines
+- **Open Source Community** for amazing tools and libraries
 
 ---
 
-**Vision Platform** - Breaking down language barriers and enhancing accessibility through AI-powered technology.
+**Made with ❤️ by the Vision Platform Team**
