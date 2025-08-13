@@ -1,9 +1,6 @@
 // Export all types
 export * from './types'
 
-// Export schemas for validation
-export { Schemas } from './types'
-
 // Export utility functions
 export const validateRequest = <T>(schema: any, data: unknown): T => {
   return schema.parse(data)
