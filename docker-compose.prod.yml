@@ -1,0 +1,235 @@
+version: '3.8'
+
+services:
+  # MongoDB Database - Production
+  mongodb:
+    image: mongo:7.0
+    container_name: multimodal-mongodb-prod
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data_prod:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - multimodal-network-prod
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # Redis Cache - Production
+  redis:
+    image: redis:7.2-alpine
+    container_name: multimodal-redis-prod
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_prod:/data
+    networks:
+      - multimodal-network-prod
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # API Service - Production
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+      target: production
+    container_name: multimodal-api-prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      MONGODB_URI: ${MONGODB_URI}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      AI_SERVICE_URL: http://ai-service:8000
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${S3_REGION}
+      SENTRY_DSN: ${SENTRY_DSN}
+      LOG_LEVEL: info
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - multimodal-network-prod
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  # AI Service - Production
+  ai-service:
+    build:
+      context: ./services/ai
+      dockerfile: Dockerfile
+      target: production
+    container_name: multimodal-ai-prod
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
+      MODEL_CACHE_DIR: /app/models
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY}
+      USE_LOCAL_MODELS: ${USE_LOCAL_MODELS}
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    volumes:
+      - ai_models_prod:/app/models
+    networks:
+      - multimodal-network-prod
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+
+  # Web Frontend - Production
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      target: production
+    container_name: multimodal-web-prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      VITE_API_URL: ${VITE_API_URL}
+      VITE_SOCKET_URL: ${VITE_SOCKET_URL}
+      VITE_AI_SERVICE_URL: ${VITE_AI_SERVICE_URL}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - multimodal-network-prod
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Nginx Reverse Proxy - Production
+  nginx:
+    image: nginx:alpine
+    container_name: multimodal-nginx-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - web
+      - api
+      - ai-service
+    networks:
+      - multimodal-network-prod
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # Monitoring - Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: multimodal-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - multimodal-network-prod
+
+  # Monitoring - Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: multimodal-grafana
+    restart: unless-stopped
+    ports:
+      - "3002:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - multimodal-network-prod
+
+volumes:
+  mongodb_data_prod:
+    driver: local
+  redis_data_prod:
+    driver: local
+  ai_models_prod:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  multimodal-network-prod:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

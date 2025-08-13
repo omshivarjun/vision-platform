@@ -1,0 +1,181 @@
+
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: multimodal-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: multimodal-platform
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - multimodal-network
+
+  # Redis Cache
+  redis:
+    image: redis:7.2-alpine
+    container_name: multimodal-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - multimodal-network
+
+  # Local S3-compatible storage (MinIO)
+  minio:
+    image: minio/minio:latest
+    container_name: multimodal-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - multimodal-network
+
+  # API Service
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    container_name: multimodal-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/multimodal-platform?authSource=admin
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      AI_SERVICE_URL: http://ai-service:8000
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin123
+      S3_BUCKET: multimodal-files
+      S3_REGION: us-east-1
+      S3_FORCE_PATH_STYLE: "true"
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./services/api:/app
+      - /app/node_modules
+      - ./logs:/app/logs
+    depends_on:
+      - mongodb
+      - redis
+      - minio
+    networks:
+      - multimodal-network
+
+  # AI Service
+  ai-service:
+    build:
+      context: ./services/ai
+      dockerfile: Dockerfile
+    container_name: multimodal-ai
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: "1"
+      MODEL_CACHE_DIR: /app/models
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
+      USE_LOCAL_MODELS: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services/ai:/app
+      - ai_models:/app/models
+      - ./logs:/app/logs
+    networks:
+      - multimodal-network
+
+  # Web Frontend
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: multimodal-web
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:3001
+      VITE_SOCKET_URL: http://localhost:3001
+      VITE_AI_SERVICE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    depends_on:
+      - api
+    networks:
+      - multimodal-network
+
+  # Mobile Development Server (Expo)
+  mobile:
+    build:
+      context: ./apps/mobile
+      dockerfile: Dockerfile
+    container_name: multimodal-mobile
+    restart: unless-stopped
+    environment:
+      EXPO_DEVTOOLS_LISTEN_ADDRESS: 0.0.0.0
+      EXPO_PACKAGER_HOSTNAME: localhost
+    ports:
+      - "19000:19000"
+      - "19001:19001"
+      - "19002:19002"
+    volumes:
+      - ./apps/mobile:/app
+      - /app/node_modules
+    depends_on:
+      - api
+    networks:
+      - multimodal-network
+
+  # Nginx Reverse Proxy (Optional)
+  nginx:
+    image: nginx:alpine
+    container_name: multimodal-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - web
+      - api
+      - ai-service
+    networks:
+      - multimodal-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  ai_models:
+    driver: local
+
+networks:
+  multimodal-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

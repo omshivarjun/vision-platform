@@ -1,0 +1,19 @@
+{
+  "name": "@vision/shared",
+  "version": "1.0.0",
+  "description": "Shared types and utilities for Vision Platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rimraf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2",
+    "rimraf": "^5.0.1"
+  },
+  "peerDependencies": {
+    "zod": "^3.22.4"
+  }
+}
