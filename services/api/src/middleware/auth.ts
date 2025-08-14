@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { AuthenticationError, AuthorizationError } from './errorHandler';
 import { User } from '../models/User';
+import { AuthenticationError, AuthorizationError } from './errorHandler';
 import { logger } from '../utils/logger';
 
 export interface AuthenticatedRequest extends Request {
@@ -31,14 +31,9 @@ export async function authenticateToken(
     const decoded = jwt.verify(token, secret) as any;
     
     // Get user from database
-    const user = await User.findById(decoded.userId).select('-password');
-    if (!user) {
-      throw new AuthenticationError('User not found');
-    }
-
-    // Check if user is active
-    if (!user.isActive) {
-      throw new AuthenticationError('User account is deactivated');
+    const user = await User.findById(decoded.userId);
+    if (!user || !user.isActive) {
+      throw new AuthenticationError('User not found or inactive');
     }
 
     req.user = user;
@@ -76,7 +71,7 @@ export function requireAdmin(req: AuthenticatedRequest, res: Response, next: Nex
 }
 
 export function requireUser(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  requireRole(['user', 'admin'])(req, res, next);
+  requireRole(['user', 'admin', 'moderator'])(req, res, next);
 }
 
 export function optionalAuth(
@@ -84,30 +79,29 @@ export function optionalAuth(
   res: Response,
   next: NextFunction
 ): void {
-  try {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1];
 
-    if (token) {
-      const secret = process.env.JWT_SECRET;
-      if (secret) {
-        const decoded = jwt.verify(token, secret) as any;
-        User.findById(decoded.userId)
-          .select('-password')
-          .then(user => {
-            if (user && user.isActive) {
-              req.user = user;
-              req.token = token;
-            }
-            next();
-          })
-          .catch(() => next());
-      } else {
-        next();
-      }
-    } else {
-      next();
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return next();
     }
+
+    const decoded = jwt.verify(token, secret) as any;
+    User.findById(decoded.userId)
+      .then(user => {
+        if (user && user.isActive) {
+          req.user = user;
+          req.token = token;
+        }
+        next();
+      })
+      .catch(() => next());
   } catch (error) {
     // If token is invalid, just continue without authentication
     next();
