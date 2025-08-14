@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # Web Frontend - Windows optimized
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: development
+      args:
+        - NODE_ENV=development
+    container_name: vision-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      NEXT_PUBLIC_AI_SERVICE_URL: http://localhost:8000
+      NEXT_PUBLIC_WEBSOCKET_URL: ws://localhost:3001
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/app/apps/web
+      - ./packages/shared:/app/packages/shared
+      - /app/apps/web/node_modules
+      - /app/packages/shared/node_modules
+    depends_on:
+      - api
+      - ai-service
+    networks:
+      - vision-network
+
+  # Mobile Development Server - Windows optimized
+  mobile:
+    build:
+      context: .
+      dockerfile: apps/mobile/Dockerfile
+      target: development
+    container_name: vision-mobile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      EXPO_DEVTOOLS_LISTEN_ADDRESS: 0.0.0.0
+      EXPO_PUBLIC_API_URL: http://localhost:3001
+      EXPO_PUBLIC_AI_SERVICE_URL: http://localhost:8000
+    ports:
+      - "19000:19000"
+      - "19001:19001"
+      - "19002:19002"
+    volumes:
+      - ./apps/mobile:/app/apps/mobile
+      - /app/apps/mobile/node_modules
+    depends_on:
+      - api
+      - ai-service
+    networks:
+      - vision-network
+
+networks:
+  vision-network:
+    driver: bridge

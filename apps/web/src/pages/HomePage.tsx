@@ -15,42 +15,42 @@ export function HomePage() {
       icon: LanguageIcon,
       title: 'Cross-Language Translation',
       description: 'Translate text, speech, and images between 50+ languages with AI-powered accuracy.',
-      href: '/translation',
+      href: '/gemini-assistant',
       color: 'from-blue-500 to-cyan-500'
     },
     {
       icon: EyeIcon,
       title: 'Visual Accessibility',
       description: 'Scene descriptions, object detection, and navigation assistance for visually impaired users.',
-      href: '/accessibility',
+      href: '/voice-assistant',
       color: 'from-purple-500 to-pink-500'
     },
     {
       icon: MicrophoneIcon,
       title: 'Voice Control',
       description: 'Complete voice-first experience with natural language commands and audio feedback.',
-      href: '/accessibility',
+      href: '/voice-assistant',
       color: 'from-green-500 to-emerald-500'
     },
     {
       icon: CameraIcon,
       title: 'Real-time OCR',
       description: 'Extract and translate text from images, documents, and live camera feed.',
-      href: '/translation',
+      href: '/document-reader',
       color: 'from-orange-500 to-red-500'
     },
     {
       icon: SpeakerWaveIcon,
       title: 'Text-to-Speech',
       description: 'Natural voice synthesis in multiple languages with customizable settings.',
-      href: '/accessibility',
+      href: '/voice-assistant',
       color: 'from-indigo-500 to-blue-500'
     },
     {
       icon: MapIcon,
       title: 'Navigation Assistance',
       description: 'Step-by-step voice navigation with obstacle detection and safety warnings.',
-      href: '/accessibility',
+      href: '/voice-assistant',
       color: 'from-teal-500 to-cyan-500'
     }
   ]
@@ -98,10 +98,10 @@ export function HomePage() {
               transition={{ duration: 0.8, delay: 0.4 }}
               className="flex flex-col sm:flex-row gap-4 justify-center"
             >
-              <Link to="/translation" className="btn-primary text-lg px-8 py-3">
+              <Link to="/gemini-assistant" className="btn-primary text-lg px-8 py-3">
                 Start Translating
               </Link>
-              <Link to="/accessibility" className="btn-outline text-lg px-8 py-3">
+              <Link to="/voice-assistant" className="btn-outline text-lg px-8 py-3">
                 Accessibility Features
               </Link>
             </motion.div>
@@ -192,16 +192,16 @@ export function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
-              to="/register" 
+              to="/login" 
               className="bg-white text-blue-600 hover:bg-gray-100 font-semibold py-3 px-8 rounded-lg transition-colors"
             >
               Get Started Free
             </Link>
             <Link 
-              to="/api-docs" 
+              to="/analytics" 
               className="border border-white text-white hover:bg-white hover:text-blue-600 font-semibold py-3 px-8 rounded-lg transition-colors"
             >
-              View API Docs
+              View Analytics
             </Link>
           </div>
         </div>

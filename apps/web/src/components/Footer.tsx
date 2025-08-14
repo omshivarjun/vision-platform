@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 
 export function Footer() {
   return (
@@ -9,7 +9,7 @@ export function Footer() {
             {/* Company info */}
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-accent-500 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-lg">V</span>
                 </div>
                 <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">
@@ -61,22 +61,22 @@ export function Footer() {
               </h3>
               <ul className="space-y-3">
                 <li>
-                  <Link href="/translation" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                  <Link to="/translation" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                     Translation
                   </Link>
                 </li>
                 <li>
-                  <Link href="/accessibility" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                  <Link to="/accessibility" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                     Accessibility
                   </Link>
                 </li>
                 <li>
-                  <Link href="/api-docs" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                  <Link to="/api-docs" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                     API Documentation
                   </Link>
                 </li>
                 <li>
-                  <Link href="/pricing" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                  <Link to="/pricing" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                     Pricing
                   </Link>
                 </li>
@@ -90,22 +90,22 @@ export function Footer() {
               </h3>
               <ul className="space-y-3">
                 <li>
-                  <Link href="/help" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                  <Link to="/help" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                     Help Center
                   </Link>
                 </li>
                 <li>
-                  <Link href="/contact" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                  <Link to="/contact" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                     Contact Us
                   </Link>
                 </li>
                 <li>
-                  <Link href="/status" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                  <Link to="/status" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                     System Status
                   </Link>
                 </li>
                 <li>
-                  <Link href="/feedback" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                  <Link to="/feedback" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                     Feedback
                   </Link>
                 </li>
@@ -121,13 +121,13 @@ export function Footer() {
               © 2024 Vision Platform. All rights reserved.
             </div>
             <div className="flex space-x-6 mt-4 md:mt-0">
-              <Link href="/privacy" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm transition-colors">
+              <Link to="/privacy" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm transition-colors">
                 Privacy Policy
               </Link>
-              <Link href="/terms" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm transition-colors">
+              <Link to="/terms" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm transition-colors">
                 Terms of Service
               </Link>
-              <Link href="/accessibility" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm transition-colors">
+              <Link to="/accessibility" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm transition-colors">
                 Accessibility
               </Link>
             </div>
@@ -139,7 +139,7 @@ export function Footer() {
               <p>
                 Vision Platform is committed to accessibility and follows WCAG 2.1 AA guidelines. 
                 For accessibility assistance, please contact us at{' '}
-                <a href="mailto:accessibility@visionplatform.com" className="text-primary-600 dark:text-primary-400 hover:underline">
+                <a href="mailto:accessibility@visionplatform.com" className="text-blue-600 dark:text-blue-400 hover:underline">
                   accessibility@visionplatform.com
                 </a>
               </p>

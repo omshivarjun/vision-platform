@@ -1,13 +1,32 @@
 import axios from 'axios'
-import type { 
-  TranslationRequest, 
-  TranslationResponse,
-  BatchTranslationRequest,
-  LanguageDetectionRequest 
-} from '@shared/types'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
-const AI_BASE_URL = import.meta.env.VITE_AI_URL || 'http://localhost:8000'
+// Define types locally to avoid import issues
+interface TranslationRequest {
+  text: string
+  sourceLanguage: string
+  targetLanguage: string
+  quality?: string
+}
+
+interface TranslationResponse {
+  translatedText: string
+  confidence: number
+  detectedLanguage?: string
+}
+
+interface BatchTranslationRequest {
+  texts: string[]
+  sourceLanguage: string
+  targetLanguage: string
+}
+
+interface LanguageDetectionRequest {
+  text: string
+  confidenceThreshold?: number
+}
+
+const API_BASE_URL = 'http://localhost:3001'
+const AI_BASE_URL = 'http://localhost:8000'
 
 // Create axios instances
 const apiClient = axios.create({
@@ -100,103 +119,13 @@ export const speechApi = {
   }) {
     const response = await aiClient.post('/ai/speech/text-to-speech', request)
     return response.data
-  },
-
-  async processVoiceCommand(formData: FormData) {
-    const response = await aiClient.post('/ai/speech/voice-command', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-    return response.data
-  },
-
-  async getSupportedLanguages() {
-    const response = await aiClient.get('/ai/speech/supported-languages')
-    return response.data
-  },
-
-  async getAvailableVoices() {
-    const response = await aiClient.get('/ai/speech/voices')
-    return response.data
-  }
-}
-
-// OCR API
-export const ocrApi = {
-  async extractText(formData: FormData) {
-    const response = await aiClient.post('/ai/ocr/upload-image', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-    return response.data
-  },
-
-  async batchExtract(formData: FormData) {
-    const response = await aiClient.post('/ai/ocr/batch-extract', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-    return response.data
-  },
-
-  async getSupportedLanguages() {
-    const response = await aiClient.get('/ai/ocr/supported-languages')
-    return response.data
-  },
-
-  async getModels() {
-    const response = await aiClient.get('/ai/ocr/models')
-    return response.data
-  }
-}
-
-// Accessibility API
-export const accessibilityApi = {
-  async analyzeScene(formData: FormData) {
-    const response = await aiClient.post('/ai/accessibility/scene-description', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-    return response.data
-  },
-
-  async detectObjects(formData: FormData) {
-    const response = await aiClient.post('/ai/accessibility/object-detection', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-    return response.data
-  },
-
-  async getNavigation(request: {
-    currentLocation: { latitude: number; longitude: number }
-    destination: string
-    mode: string
-    accessibility: boolean
-  }) {
-    const response = await apiClient.post('/api/accessibility/navigation', request)
-    return response.data
-  },
-
-  async processVoiceCommand(formData: FormData) {
-    const response = await aiClient.post('/ai/accessibility/voice-command', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-    return response.data
   }
 }
 
 // Auth API
 export const authApi = {
   async login(email: string, password: string) {
-    const response = await apiClient.post('/api/auth/login', { email, password })
+    const response = await apiClient.post('/auth/login', { email, password })
     return response.data
   },
 
@@ -206,35 +135,50 @@ export const authApi = {
     firstName: string
     lastName: string
   }) {
-    const response = await apiClient.post('/api/auth/register', userData)
+    const response = await apiClient.post('/auth/register', userData)
     return response.data
   },
 
   async getProfile() {
-    const response = await apiClient.get('/api/auth/me')
+    const response = await apiClient.get('/auth/profile')
     return response.data
   },
 
   async updateProfile(userData: any) {
-    const response = await apiClient.put('/api/users/profile', userData)
-    return response.data
-  },
-
-  async refreshToken(refreshToken: string) {
-    const response = await apiClient.post('/api/auth/refresh', { refreshToken })
+    const response = await apiClient.put('/auth/profile', userData)
     return response.data
   }
 }
 
-// Health API
-export const healthApi = {
-  async getApiHealth() {
-    const response = await apiClient.get('/health')
+// OCR API
+export const ocrApi = {
+  async extractText(formData: FormData) {
+    const response = await aiClient.post('/ai/ocr/extract-text', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  }
+}
+
+// Object Detection API
+export const objectDetectionApi = {
+  async detectObjects(formData: FormData) {
+    const response = await aiClient.post('/ai/vision/detect-objects', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
     return response.data
   },
 
-  async getAiHealth() {
-    const response = await aiClient.get('/health')
+  async analyzeScene(formData: FormData) {
+    const response = await aiClient.post('/ai/vision/analyze-scene', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
     return response.data
   }
 }

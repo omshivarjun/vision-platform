@@ -1,53 +1,70 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { translationApi } from '../services/api'
-import type { TranslationRequest, TranslationResponse } from '@shared/types'
+
+// Define types locally
+interface TranslationRequest {
+  text: string
+  sourceLanguage: string
+  targetLanguage: string
+  quality?: string
+}
+
+interface TranslationResponse {
+  translatedText: string
+  confidence: number
+  detectedLanguage?: string
+}
 
 export function useTranslation() {
   const translateMutation = useMutation({
-    mutationFn: translationApi.translateText,
-    onError: (error) => {
-      console.error('Translation error:', error)
-    }
+    mutationFn: (request: TranslationRequest) => translationApi.translateText(request),
   })
 
-  const { data: supportedLanguages } = useQuery({
-    queryKey: ['supportedLanguages'],
-    queryFn: translationApi.getSupportedLanguages,
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours
-  })
-
-  const translateText = async (request: TranslationRequest): Promise<TranslationResponse> => {
-    return translateMutation.mutateAsync(request)
-  }
-
-  return {
-    translateText,
-    supportedLanguages: supportedLanguages?.languages || [],
-    isLoading: translateMutation.isPending,
-    error: translateMutation.error,
-  }
-}
-
-export function useBatchTranslation() {
   const batchTranslateMutation = useMutation({
-    mutationFn: translationApi.batchTranslate,
+    mutationFn: (request: { texts: string[]; sourceLanguage: string; targetLanguage: string }) =>
+      translationApi.batchTranslate(request),
   })
 
-  return {
-    batchTranslate: batchTranslateMutation.mutateAsync,
-    isLoading: batchTranslateMutation.isPending,
-    error: batchTranslateMutation.error,
-  }
-}
-
-export function useLanguageDetection() {
   const detectLanguageMutation = useMutation({
-    mutationFn: translationApi.detectLanguage,
+    mutationFn: (request: { text: string; confidenceThreshold?: number }) =>
+      translationApi.detectLanguage(request),
+  })
+
+  const supportedLanguagesQuery = useQuery({
+    queryKey: ['supportedLanguages'],
+    queryFn: () => translationApi.getSupportedLanguages(),
+  })
+
+  const translationModelsQuery = useQuery({
+    queryKey: ['translationModels'],
+    queryFn: () => translationApi.getTranslationModels(),
   })
 
   return {
-    detectLanguage: detectLanguageMutation.mutateAsync,
-    isLoading: detectLanguageMutation.isPending,
-    error: detectLanguageMutation.error,
+    translate: translateMutation.mutate,
+    translateAsync: translateMutation.mutateAsync,
+    isTranslating: translateMutation.isPending,
+    translationError: translateMutation.error,
+    translationResult: translateMutation.data,
+
+    batchTranslate: batchTranslateMutation.mutate,
+    batchTranslateAsync: batchTranslateMutation.mutateAsync,
+    isBatchTranslating: batchTranslateMutation.isPending,
+    batchTranslationError: batchTranslateMutation.error,
+    batchTranslationResult: batchTranslateMutation.data,
+
+    detectLanguage: detectLanguageMutation.mutate,
+    detectLanguageAsync: detectLanguageMutation.mutateAsync,
+    isDetectingLanguage: detectLanguageMutation.isPending,
+    languageDetectionError: detectLanguageMutation.error,
+    languageDetectionResult: detectLanguageMutation.data,
+
+    supportedLanguages: supportedLanguagesQuery.data,
+    isSupportedLanguagesLoading: supportedLanguagesQuery.isLoading,
+    supportedLanguagesError: supportedLanguagesQuery.error,
+
+    translationModels: translationModelsQuery.data,
+    isTranslationModelsLoading: translationModelsQuery.isLoading,
+    translationModelsError: translationModelsQuery.error,
   }
 }

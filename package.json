@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "docker-compose up -d",
     "platform": "powershell -ExecutionPolicy Bypass -File open-platform.ps1",
-    "start": "docker-compose up -d && powershell -ExecutionPolicy Bypass -File open-platform.ps1",
+    "start": "powershell -ExecutionPolicy Bypass -File start-windows.ps1",
+    "setup": "powershell -ExecutionPolicy Bypass -File setup-windows.ps1",
+    "simple": "powershell -ExecutionPolicy Bypass -File run-simple.ps1",
+    "quick-fix": "powershell -ExecutionPolicy Bypass -File quick-fix.ps1",
+    "infrastructure": "docker-compose -f docker-compose.infrastructure.yml up -d",
     "stop": "docker-compose down",
     "status": "docker-compose ps",
     "logs": "docker-compose logs -f",
