@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { CameraIcon, PhotoIcon, DocumentIcon } from '@heroicons/react/24/outline'
+import { CameraIcon, PhotoIcon, DocumentIcon, StopIcon } from '@heroicons/react/24/outline'
 import { useOCR } from '../hooks/useOCR'
 import { useTranslation } from '../hooks/useTranslation'
 import toast from 'react-hot-toast'
@@ -105,7 +105,7 @@ export function ImageUploader({ sourceLanguage, targetLanguage, onTranslation }:
 
         toast.success('Image processed and translated!')
       } else {
-        toast.warning('No text found in image')
+        toast.error('No text found in image')
       }
     } catch (error) {
       toast.error('Failed to process image')

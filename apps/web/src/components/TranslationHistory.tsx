@@ -67,9 +67,9 @@ export function TranslationHistory() {
             </div>
           ))}
         </div>
-      ) : historyData?.data?.translations?.length > 0 ? (
+      ) : (historyData as any)?.data?.translations?.length > 0 ? (
         <div className="space-y-3">
-          {historyData.data.translations.map((translation: any) => (
+          {(historyData as any).data.translations.map((translation: any) => (
             <div
               key={translation.id}
               className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
@@ -112,7 +112,7 @@ export function TranslationHistory() {
           ))}
 
           {/* Pagination */}
-          {historyData.data.pagination.pages > 1 && (
+          {(historyData as any).data.pagination.pages > 1 && (
             <div className="flex justify-between items-center pt-4">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -122,11 +122,11 @@ export function TranslationHistory() {
                 Previous
               </button>
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                Page {page} of {historyData.data.pagination.pages}
+                Page {page} of {(historyData as any).data.pagination.pages}
               </span>
               <button
                 onClick={() => setPage(p => p + 1)}
-                disabled={page >= historyData.data.pagination.pages}
+                disabled={page >= (historyData as any).data.pagination.pages}
                 className="btn-outline text-sm py-1 px-3 disabled:opacity-50"
               >
                 Next

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDND } from '../contexts/DNDContext';
 
 interface UserProfile {
   id: string;
@@ -27,6 +28,7 @@ const ProfilePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { isDNDEnabled, setDNDEnabled, dndSettings, updateDNSSettings } = useDND();
 
   useEffect(() => {
     // Simulate loading user profile
@@ -275,6 +277,117 @@ const ProfilePage: React.FC = () => {
                     </button>
                   </div>
                 )}
+              </div>
+
+              {/* DND Settings */}
+              <div className="bg-white shadow rounded-lg p-6 mt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-6">Do Not Disturb Settings</h3>
+                
+                <div className="space-y-6">
+                  {/* DND Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-gray-900">Do Not Disturb Mode</h4>
+                      <p className="text-sm text-gray-600">Silence notifications and interruptions</p>
+                    </div>
+                    <button
+                      onClick={() => setDNDEnabled(!isDNDEnabled)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        isDNDEnabled ? 'bg-red-600' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          isDNDEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* DND Options */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">
+                        Suppress Notifications
+                      </label>
+                      <input
+                        type="checkbox"
+                        checked={dndSettings.suppressNotifications}
+                        onChange={(e) => updateDNSSettings({ suppressNotifications: e.target.checked })}
+                        className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">
+                        Suppress Sounds
+                      </label>
+                      <input
+                        type="checkbox"
+                        checked={dndSettings.suppressSounds}
+                        onChange={(e) => updateDNSSettings({ suppressSounds: e.target.checked })}
+                        className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">
+                        Suppress Visual Alerts
+                      </label>
+                      <input
+                        type="checkbox"
+                        checked={dndSettings.suppressVisualAlerts}
+                        onChange={(e) => updateDNSSettings({ suppressVisualAlerts: e.target.checked })}
+                        className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quiet Hours */}
+                  <div className="space-y-3">
+                    <h5 className="text-sm font-medium text-gray-700">Quiet Hours</h5>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Start Time</label>
+                        <input
+                          type="time"
+                          value={dndSettings.quietHours.start}
+                          onChange={(e) => updateDNSSettings({ 
+                            quietHours: { ...dndSettings.quietHours, start: e.target.value }
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">End Time</label>
+                        <input
+                          type="time"
+                          value={dndSettings.quietHours.end}
+                          onChange={(e) => updateDNSSettings({ 
+                            quietHours: { ...dndSettings.quietHours, end: e.target.value }
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Auto-disable Time */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Auto-disable at (optional)
+                    </label>
+                    <input
+                      type="time"
+                      value={dndSettings.autoDisableAt || ''}
+                      onChange={(e) => updateDNSSettings({ 
+                        autoDisableAt: e.target.value || null
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      placeholder="Leave empty for manual control"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Security Settings */}

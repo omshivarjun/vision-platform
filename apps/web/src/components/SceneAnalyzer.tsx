@@ -40,8 +40,8 @@ export function SceneAnalyzer() {
         includeText
       })
 
-      setSceneDescription(result.description)
-      setDetectedObjects(result.objects || [])
+      setSceneDescription((result as any).description)
+      setDetectedObjects((result as any).objects || [])
       toast.success('Scene analysis completed!')
     } catch (error) {
       toast.error('Failed to analyze scene')

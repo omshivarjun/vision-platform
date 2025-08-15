@@ -31,7 +31,7 @@ export function useOCR() {
     })
     formData.append('language', language)
 
-    return batchExtractMutation.mutateAsync(formData)
+    return batchExtractMutation.mutateAsync(formData as any)
   }
 
   return {

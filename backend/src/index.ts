@@ -25,6 +25,11 @@ import { translationRoutes } from './routes/translation';
 import { accessibilityRoutes } from './routes/accessibility';
 import { userRoutes } from './routes/users';
 import { healthRoutes } from './routes/health';
+import paymentRoutes from './routes/payment';
+import documentRoutes from './routes/documents';
+import assistantRoutes from './routes/assistant';
+import analyticsRoutes from './routes/analytics';
+import ocrRoutes from './routes/ocr';
 import { setupWebSocket } from './websocket/setup';
 
 // Import types
@@ -107,6 +112,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/translation', translationRoutes);
 app.use('/api/accessibility', accessibilityRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/documents', documentRoutes);
+app.use('/api/assistant', assistantRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/ocr', ocrRoutes);
 
 // API documentation
 app.get('/api-docs', (req: Request, res: Response) => {
@@ -118,6 +128,11 @@ app.get('/api-docs', (req: Request, res: Response) => {
       translation: '/api/translation',
       accessibility: '/api/accessibility',
       users: '/api/users',
+      payments: '/api/payments',
+      documents: '/api/documents',
+      assistant: '/api/assistant',
+      analytics: '/api/analytics',
+      ocr: '/api/ocr',
       health: '/health'
     },
     documentation: '/api/docs'

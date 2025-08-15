@@ -1,0 +1,167 @@
+repos:
+  # General hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: check-ast
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: debug-statements
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-toml
+      - id: check-vcs-permalinks
+      - id: mixed-line-ending
+      - id: name-tests-test
+      - id: requirements-txt-fixer
+      - id: fix-byte-order-marker
+
+  # TypeScript/JavaScript hooks
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v8.57.0
+    hooks:
+      - id: eslint
+        files: \.(js|jsx|ts|tsx)$
+        types: [file]
+        additional_dependencies:
+          - eslint@^8.57.0
+          - '@typescript-eslint/eslint-plugin@^6.21.0'
+          - '@typescript-eslint/parser@^6.21.0'
+          - eslint-config-prettier@^9.1.0
+          - eslint-plugin-react@^7.33.2
+          - eslint-plugin-react-hooks@^4.6.0
+          - eslint-plugin-jsx-a11y@^6.8.0
+
+  # Prettier formatting
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.2.5
+    hooks:
+      - id: prettier
+        types_or: [javascript, jsx, ts, tsx, json, css, scss, html, yaml, markdown]
+
+  # TypeScript type checking
+  - repo: https://github.com/pre-commit/mirrors-typescript-eslint
+    rev: v6.21.0
+    hooks:
+      - id: typescript-eslint
+        files: \.(ts|tsx)$
+        types: [file]
+        additional_dependencies:
+          - typescript@^5.3.3
+          - '@typescript-eslint/eslint-plugin@^6.21.0'
+          - '@typescript-eslint/parser@^6.21.0'
+
+  # Python hooks
+  - repo: https://github.com/psf/black
+    rev: 24.1.1
+    hooks:
+      - id: black
+        language_version: python3
+        args: [--line-length=88]
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--profile=black, --line-length=88]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: [--max-line-length=88, --extend-ignore=E203,W503]
+
+  # Docker hooks
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        args: [--ignore, DL3008, --ignore, DL3009]
+
+  # YAML/JSON validation
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.33.0
+    hooks:
+      - id: yamllint
+        args: [--strict]
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.38.0
+    hooks:
+      - id: markdownlint
+        args: [--fix]
+
+  # Security scanning
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+
+  # Custom hooks for Vision Platform specific checks
+  - repo: local
+    hooks:
+      - id: check-duplicate-exports
+        name: Check for duplicate exports
+        entry: bash -c 'if grep -r "export {" apps/web/src/services/realApi.ts | wc -l | grep -q "2"; then echo "❌ ERROR: Duplicate export statements found in realApi.ts"; exit 1; fi'
+        language: system
+        files: apps/web/src/services/realApi.ts
+
+      - id: check-react-imports
+        name: Check React import conflicts
+        entry: bash -c 'if grep -r "jsxInject.*React" apps/web/vite.config.ts; then echo "❌ ERROR: jsxInject conflicts with manual React imports"; exit 1; fi'
+        language: system
+        files: apps/web/vite.config.ts
+
+      - id: check-context-providers
+        name: Check context provider wrapping
+        entry: bash -c 'if ! grep -q "ThemeProvider" apps/web/src/main.tsx || ! grep -q "MsalProvider" apps/web/src/main.tsx || ! grep -q "AuthProvider" apps/web/src/main.tsx; then echo "❌ ERROR: Missing context providers in main.tsx"; exit 1; fi'
+        language: system
+        files: apps/web/src/main.tsx
+
+      - id: check-port-mappings
+        name: Check Docker port mappings
+        entry: bash -c 'if grep -r "3000:3000" docker-compose.yml; then echo "❌ ERROR: Incorrect port mapping found (should be 3000:5173)"; exit 1; fi'
+        language: system
+        files: docker-compose.yml
+
+      - id: check-env-file
+        name: Check environment file exists
+        entry: bash -c 'if [ ! -f "apps/web/.env" ]; then echo "❌ ERROR: .env file missing in apps/web"; exit 1; fi'
+        language: system
+        files: apps/web/.env
+
+      - id: check-tailwind-plugins
+        name: Check Tailwind plugins
+        entry: bash -c 'if ! grep -q "require.*@tailwindcss" apps/web/tailwind.config.js; then echo "⚠️  WARNING: Tailwind plugins are disabled"; fi'
+        language: system
+        files: apps/web/tailwind.config.js
+
+      - id: check-dependencies
+        name: Check critical dependencies
+        entry: bash -c 'cd apps/web && npm list @heroicons/react @azure/msal-react @tailwindcss/forms > /dev/null 2>&1 || (echo "❌ ERROR: Missing critical dependencies"; exit 1)'
+        language: system
+        files: apps/web/package.json
+
+      - id: check-backend-deps
+        name: Check backend dependencies
+        entry: bash -c 'cd backend && if ! grep -q "rate-limiter-flexible.*4" package.json; then echo "❌ ERROR: Outdated rate-limiter-flexible version"; exit 1; fi'
+        language: system
+        files: backend/package.json
+
+      - id: check-api-routes
+        name: Check API route registration
+        entry: bash -c 'cd backend && if ! grep -r "app.use.*api" src/index.ts; then echo "❌ ERROR: API routes not properly registered"; exit 1; fi'
+        language: system
+        files: backend/src/index.ts

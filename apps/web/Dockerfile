@@ -4,14 +4,14 @@ FROM node:18-alpine AS base
 # Set working directory
 WORKDIR /app
 
-# Copy Docker-specific package.json (no workspace dependencies)
-COPY apps/web/package.docker.json ./package.json
+# Copy package.json first for better caching
+COPY package.docker.json ./package.json
 
-# Install dependencies
-RUN npm install --legacy-peer-deps
+# Install dependencies fresh
+RUN npm install
 
 # Copy source code
-COPY apps/web/ ./
+COPY . .
 
 # Build stage
 FROM base AS build
@@ -39,7 +39,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 FROM base AS development
 
 # Expose port
-EXPOSE 3000
+EXPOSE 5173
 
 # Start development server
 CMD ["npm", "run", "dev"]

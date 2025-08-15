@@ -1,538 +1,642 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { 
-  MicrophoneIcon as MicIcon, 
-  MicrophoneIcon as MicOffIcon, 
-  PlayIcon, 
+  PaperAirplaneIcon, 
+  PaperClipIcon, 
+  MicrophoneIcon,
+  StopIcon,
+  PlayIcon,
   PauseIcon,
   SpeakerWaveIcon,
-  EyeIcon,
-  CameraIcon,
-  DocumentTextIcon,
-  MapIcon,
-  Cog6ToothIcon as CogIcon,
-  SparklesIcon,
+  TrashIcon,
+  PlusIcon,
   ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline'
+import { assistantService, AssistantMessage, ConversationContext, MultimodalInput } from '../services/assistantService'
 import toast from 'react-hot-toast'
 
-interface AssistantMessage {
-  id: string
-  type: 'user' | 'assistant'
-  content: string
-  timestamp: Date
-  action?: string
-}
-
-interface VoiceCommand {
-  command: string
-  description: string
-  action: string
-  icon: React.ComponentType<any>
-}
-
-export function GeminiAssistantPage() {
-  const [isListening, setIsListening] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [transcript, setTranscript] = useState('')
+export default function GeminiAssistantPage() {
   const [messages, setMessages] = useState<AssistantMessage[]>([])
-  const [isSpeaking, setIsSpeaking] = useState(false)
-  const [currentTask, setCurrentTask] = useState('')
-  const [assistantMode, setAssistantMode] = useState<'general' | 'navigation' | 'reading' | 'object'>('general')
+  const [inputText, setInputText] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [conversations, setConversations] = useState<ConversationContext[]>([])
+  const [currentConversation, setCurrentConversation] = useState<ConversationContext | null>(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [streamingText, setStreamingText] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
   
-  const recognitionRef = useRef<any>(null)
-  const synthesisRef = useRef<SpeechSynthesis | null>(null)
-
-  // Voice commands for blind users
-  const voiceCommands: VoiceCommand[] = [
-    {
-      command: 'hey gemini',
-      description: 'Activate Gemini Assistant',
-      action: 'activate',
-      icon: SparklesIcon
-    },
-    {
-      command: 'describe scene',
-      description: 'Describe what you see around you',
-      action: 'scene_description',
-      icon: EyeIcon
-    },
-    {
-      command: 'read document',
-      description: 'Read uploaded document aloud',
-      action: 'read_document',
-      icon: DocumentTextIcon
-    },
-    {
-      command: 'navigate to',
-      description: 'Get navigation assistance',
-      action: 'navigate',
-      icon: MapIcon
-    },
-    {
-      command: 'identify object',
-      description: 'Identify objects in camera view',
-      action: 'identify_object',
-      icon: CameraIcon
-    },
-    {
-      command: 'settings',
-      description: 'Open accessibility settings',
-      action: 'settings',
-      icon: CogIcon
-    }
-  ]
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
 
   useEffect(() => {
-    // Initialize speech recognition
-    if ('webkitSpeechRecognition' in window) {
-      recognitionRef.current = new (window as any).webkitSpeechRecognition()
-      recognitionRef.current.continuous = true
-      recognitionRef.current.interimResults = true
-      recognitionRef.current.lang = 'en-US'
-
-      recognitionRef.current.onstart = () => {
-        setIsListening(true)
-        toast.success('🎤 Listening for voice commands...')
-      }
-
-      recognitionRef.current.onresult = (event: any) => {
-        let finalTranscript = ''
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript
-          }
-        }
-        
-        if (finalTranscript) {
-          setTranscript(finalTranscript)
-          processVoiceCommand(finalTranscript.toLowerCase())
-        }
-      }
-
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error)
-        setIsListening(false)
-        toast.error('Voice recognition error. Please try again.')
-      }
-
-      recognitionRef.current.onend = () => {
-        setIsListening(false)
-      }
-    }
-
-    // Initialize speech synthesis
-    synthesisRef.current = window.speechSynthesis
-
-    // Add welcome message
-    setMessages([
-      {
-        id: '1',
-        type: 'assistant',
-        content: 'Hello! I\'m your Gemini Assistant. Say "Hey Gemini" to activate me, or use any of the voice commands below.',
-        timestamp: new Date()
-      }
-    ])
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop()
-      }
+    // Load existing conversations
+    loadConversations()
+    
+    // Create default conversation if none exist
+    if (conversations.length === 0) {
+      createNewConversation()
     }
   }, [])
 
-  const processVoiceCommand = async (command: string) => {
-    setIsProcessing(true)
-    
-    // Add user message
-    const userMessage: AssistantMessage = {
-      id: Date.now().toString(),
-      type: 'user',
-      content: command,
-      timestamp: new Date()
-    }
-    setMessages(prev => [...prev, userMessage])
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, streamingText])
 
-    // Process command
-    let response = ''
-    let action = ''
-
-    if (command.includes('hey gemini') || command.includes('activate')) {
-      response = 'Hello! I\'m here to help. What would you like me to do? I can describe scenes, read documents, help with navigation, identify objects, and much more.'
-      action = 'activated'
-    } else if (command.includes('describe scene') || command.includes('what do you see')) {
-      response = 'I\'ll analyze the scene around you. Please point your camera or describe what you\'re looking at, and I\'ll provide a detailed description.'
-      action = 'scene_analysis'
-      setAssistantMode('object')
-    } else if (command.includes('read document') || command.includes('read this')) {
-      response = 'I\'m ready to read documents for you. Please upload a PDF, Word document, or take a photo of text, and I\'ll read it aloud with proper formatting.'
-      action = 'document_reading'
-      setAssistantMode('reading')
-    } else if (command.includes('navigate') || command.includes('directions')) {
-      response = 'I\'ll help you navigate. Where would you like to go? I can provide step-by-step directions, identify landmarks, and help you avoid obstacles.'
-      action = 'navigation'
-      setAssistantMode('navigation')
-    } else if (command.includes('identify') || command.includes('what is this')) {
-      response = 'I\'ll identify objects for you. Point your camera at the object or describe what you\'re touching, and I\'ll tell you what it is.'
-      action = 'object_identification'
-      setAssistantMode('object')
-    } else if (command.includes('settings') || command.includes('preferences')) {
-      response = 'Opening accessibility settings. I can adjust voice speed, language, sound effects, and other preferences to make your experience better.'
-      action = 'settings'
-    } else {
-      response = 'I heard you say: "' + command + '". How can I help you with that? You can ask me to describe scenes, read documents, help with navigation, or identify objects.'
-    }
-
-    // Simulate AI processing delay
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Add assistant response
-    const assistantMessage: AssistantMessage = {
-      id: (Date.now() + 1).toString(),
-      type: 'assistant',
-      content: response,
-      timestamp: new Date(),
-      action
-    }
-    setMessages(prev => [...prev, assistantMessage])
-
-    // Speak the response
-    speakText(response)
-    
-    setIsProcessing(false)
-    setTranscript('')
-  }
-
-  const speakText = (text: string) => {
-    if (synthesisRef.current) {
-      synthesisRef.current.cancel() // Stop any current speech
+  const loadConversations = async () => {
+    try {
+      const userId = localStorage.getItem('userId') || 'anonymous'
+      const userConversations = await assistantService.getUserConversations(userId)
+      setConversations(userConversations)
       
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = 0.9
-      utterance.pitch = 1
-      utterance.volume = 1
+      if (userConversations.length > 0 && !currentConversation) {
+        setCurrentConversation(userConversations[0])
+        setMessages(userConversations[0].messages)
+      }
+    } catch (error) {
+      console.error('Failed to load conversations:', error)
+    }
+  }
+
+  const createNewConversation = async () => {
+    try {
+      const userId = localStorage.getItem('userId') || 'anonymous'
+      const newConversation = await assistantService.createConversation('New Conversation', userId)
+      setCurrentConversation(newConversation)
+      setMessages([])
+      setConversations(prev => [newConversation, ...prev])
+      toast.success('New conversation started!')
+    } catch (error) {
+      console.error('Failed to create conversation:', error)
+      toast.error('Failed to create new conversation')
+    }
+  }
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const handleSendMessage = async () => {
+    if (!inputText.trim() && selectedFiles.length === 0) return
+    if (isLoading) return
+
+    setIsLoading(true)
+    setStreamingText('')
+
+    try {
+      // Create user message
+      const userMessage: AssistantMessage = {
+        id: `user_${Date.now()}`,
+        role: 'user',
+        content: inputText,
+        timestamp: Date.now(),
+        metadata: {
+          attachments: selectedFiles.map(file => ({
+            type: file.type.startsWith('image/') ? 'image' : 
+                   file.type.startsWith('audio/') ? 'audio' : 'document',
+            url: URL.createObjectURL(file),
+            name: file.name,
+            size: file.size
+          }))
+        }
+      }
+
+      // Add user message to chat
+      setMessages(prev => [...prev, userMessage])
+      setInputText('')
+      setSelectedFiles([])
+
+      // Prepare multimodal input
+      const multimodalInput: MultimodalInput = {
+        text: inputText,
+        images: selectedFiles.filter(f => f.type.startsWith('image/')),
+        documents: selectedFiles.filter(f => !f.type.startsWith('image/') && !f.type.startsWith('audio/')),
+        audio: selectedFiles.find(f => f.type.startsWith('audio/')) || undefined,
+        context: currentConversation?.metadata?.topic || undefined,
+        language: currentConversation?.metadata?.language || 'en'
+      }
+
+      // Get AI response
+      const response = await assistantService.sendMessage(
+        multimodalInput,
+        currentConversation?.id
+      )
+
+      // Add assistant message to chat
+      setMessages(prev => [...prev, response.message])
+
+      // Update conversation metadata if needed
+      if (currentConversation && response.message.content) {
+        const updatedConversation = { ...currentConversation }
+        if (!updatedConversation.metadata) {
+          updatedConversation.metadata = {}
+        }
+        
+        // Update topic if not set
+        if (!updatedConversation.metadata.topic && inputText.length > 10) {
+          updatedConversation.metadata.topic = inputText.substring(0, 50) + '...'
+        }
+        
+        // Update language if detected
+        if (!updatedConversation.metadata.language) {
+          updatedConversation.metadata.language = 'en'
+        }
+        
+        setCurrentConversation(updatedConversation)
+      }
+
+      // Show suggestions if available
+      if (response.suggestions && response.suggestions.length > 0) {
+        setShowSuggestions(true)
+      }
+
+      toast.success('Message sent successfully!')
+    } catch (error) {
+      console.error('Failed to send message:', error)
+      toast.error('Failed to send message. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleStreamingResponse = async () => {
+    if (!inputText.trim() && selectedFiles.length === 0) return
+    if (isLoading) return
+
+    setIsLoading(true)
+    setStreamingText('')
+
+    try {
+      // Create user message
+      const userMessage: AssistantMessage = {
+        id: `user_${Date.now()}`,
+        role: 'user',
+        content: inputText,
+        timestamp: Date.now(),
+        metadata: {
+          attachments: selectedFiles.map(file => ({
+            type: file.type.startsWith('image/') ? 'image' : 
+                   file.type.startsWith('audio/') ? 'audio' : 'document',
+            url: URL.createObjectURL(file),
+            name: file.name,
+            size: file.size
+          }))
+        }
+      }
+
+      setMessages(prev => [...prev, userMessage])
+      setInputText('')
+      setSelectedFiles([])
+
+      // Stream response
+      const multimodalInput: MultimodalInput = {
+        text: inputText,
+        images: selectedFiles.filter(f => f.type.startsWith('image/')),
+        documents: selectedFiles.filter(f => !f.type.startsWith('image/') && !f.type.startsWith('audio/')),
+        audio: selectedFiles.find(f => f.type.startsWith('audio/')) || undefined
+      }
+
+      let fullResponse = ''
+      for await (const chunk of assistantService.streamResponse(multimodalInput, currentConversation || undefined)) {
+        fullResponse += chunk
+        setStreamingText(fullResponse)
+      }
+
+      // Create final assistant message
+      const assistantMessage: AssistantMessage = {
+        id: `assistant_${Date.now()}`,
+        role: 'assistant',
+        content: fullResponse,
+        timestamp: Date.now()
+      }
+
+      setMessages(prev => [...prev, assistantMessage])
+      setStreamingText('')
+
+      // Save conversation
+      if (currentConversation) {
+        await assistantService.saveConversation(
+          currentConversation.id,
+          userMessage,
+          assistantMessage
+        )
+      }
+
+      toast.success('Streaming response completed!')
+    } catch (error) {
+      console.error('Failed to stream response:', error)
+      toast.error('Failed to get streaming response')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    const validFiles = files.filter(file => {
+      const maxSize = 10 * 1024 * 1024 // 10MB
+      if (file.size > maxSize) {
+        toast.error(`${file.name} is too large. Maximum size is 10MB.`)
+        return false
+      }
+      return true
+    })
+
+    setSelectedFiles(prev => [...prev, ...validFiles])
+    toast.success(`${validFiles.length} file(s) selected`)
+  }
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaRecorderRef.current = new MediaRecorder(stream)
+      audioChunksRef.current = []
+
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data)
+      }
+
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' })
+        const audioFile = new File([audioBlob], 'voice-message.wav', { type: 'audio/wav' })
+        setSelectedFiles(prev => [...prev, audioFile])
+        toast.success('Voice recording saved!')
+      }
+
+      mediaRecorderRef.current.start()
+      setIsRecording(true)
+      toast.success('Recording started...')
+    } catch (error) {
+      console.error('Failed to start recording:', error)
+      toast.error('Failed to start recording. Please check microphone permissions.')
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop())
+      setIsRecording(false)
+      toast.success('Recording stopped!')
+    }
+  }
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setInputText(suggestion)
+    setShowSuggestions(false)
+  }
+
+  const deleteConversation = async (conversationId: string) => {
+    try {
+      await assistantService.deleteConversation(conversationId)
+      setConversations(prev => prev.filter(c => c.id !== conversationId))
       
-      utterance.onstart = () => setIsSpeaking(true)
-      utterance.onend = () => setIsSpeaking(false)
+      if (currentConversation?.id === conversationId) {
+        if (conversations.length > 1) {
+          const nextConversation = conversations.find(c => c.id !== conversationId)
+          setCurrentConversation(nextConversation || null)
+          setMessages(nextConversation?.messages || [])
+        } else {
+          createNewConversation()
+        }
+      }
       
-      synthesisRef.current.speak(utterance)
+      toast.success('Conversation deleted!')
+    } catch (error) {
+      console.error('Failed to delete conversation:', error)
+      toast.error('Failed to delete conversation')
     }
   }
 
-  const startListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.start()
-    }
+  const switchConversation = (conversation: ConversationContext) => {
+    setCurrentConversation(conversation)
+    setMessages(conversation.messages)
+    setShowSuggestions(false)
   }
 
-  const stopListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop()
-    }
+  const getFileIcon = (fileType: string) => {
+    if (fileType.startsWith('image/')) return '🖼️'
+    if (fileType.startsWith('audio/')) return '🎵'
+    if (fileType.includes('pdf')) return '📄'
+    if (fileType.includes('word') || fileType.includes('document')) return '📝'
+    return '📁'
   }
 
-  const toggleListening = () => {
-    if (isListening) {
-      stopListening()
-    } else {
-      startListening()
-    }
-  }
-
-  const repeatLastMessage = () => {
-    const lastAssistantMessage = messages
-      .filter(m => m.type === 'assistant')
-      .pop()
-    
-    if (lastAssistantMessage) {
-      speakText(lastAssistantMessage.content)
-    }
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-purple-500 to-blue-600 rounded-full mb-4"
-          >
-            <SparklesIcon className="w-10 h-10 text-white" />
-          </motion.div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="container mx-auto px-4 py-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-8"
+        >
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            🤖 Gemini Assistant
+            🤖 Gemini AI Assistant
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Your AI-powered accessibility companion. Say "Hey Gemini" to activate voice commands and get assistance with daily tasks.
+            Your intelligent AI companion for conversations, document analysis, image understanding, and more.
+            Experience the power of multimodal AI assistance.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Voice Control Panel */}
-          <div className="lg:col-span-1">
-            <motion.div
-              initial={{ x: -50, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ duration: 0.5 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6"
-            >
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
-                <MicIcon className="w-6 h-6 mr-2 text-purple-600" />
-                Voice Control
-              </h2>
-
-              {/* Voice Activation Button */}
-              <div className="text-center mb-6">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={toggleListening}
-                  className={`w-24 h-24 rounded-full flex items-center justify-center text-white font-bold text-lg transition-all duration-300 ${
-                    isListening 
-                      ? 'bg-red-500 shadow-lg shadow-red-500/50 animate-pulse' 
-                      : 'bg-gradient-to-r from-purple-500 to-blue-600 shadow-lg shadow-purple-500/50'
-                  }`}
-                >
-                  {isListening ? <MicOffIcon className="w-8 h-8" /> : <MicIcon className="w-8 h-8" />}
-                </motion.button>
-                <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-                  {isListening ? 'Listening...' : 'Tap to activate'}
-                </p>
-              </div>
-
-              {/* Current Status */}
-              <div className="space-y-4 mb-6">
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    isListening ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {isListening ? 'Active' : 'Standby'}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Mode</span>
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
-                    {assistantMode}
-                  </span>
-                </div>
-
-                {isSpeaking && (
-                  <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Speaking</span>
-                    <SpeakerWaveIcon className="w-4 h-4 text-blue-600 animate-pulse" />
-                  </div>
-                )}
-              </div>
-
-              {/* Quick Actions */}
-              <div className="space-y-2">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Conversations Sidebar */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="lg:col-span-1"
+          >
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Conversations
+                </h2>
                 <button
-                  onClick={repeatLastMessage}
-                  className="w-full flex items-center justify-center px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  onClick={createNewConversation}
+                  className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                  title="New conversation"
                 >
-                  <PlayIcon className="w-4 h-4 mr-2" />
-                  Repeat Last Message
+                  <PlusIcon className="w-5 h-5" />
                 </button>
               </div>
-            </motion.div>
 
-            {/* Voice Commands */}
-            <motion.div
-              initial={{ x: -50, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mt-6"
-            >
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-                Voice Commands
-              </h3>
-              <div className="space-y-3">
-                {voiceCommands.map((cmd, index) => (
-                  <motion.div
-                    key={cmd.command}
-                    initial={{ x: -20, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                    className="flex items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
-                    onClick={() => processVoiceCommand(cmd.command)}
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {conversations.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                      currentConversation?.id === conversation.id
+                        ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                    onClick={() => switchConversation(conversation)}
                   >
-                    <cmd.icon className="w-5 h-5 text-purple-600 mr-3" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        "{cmd.command}"
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {cmd.description}
-                      </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {conversation.title}
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {conversation.messages.length} messages
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteConversation(conversation.id)
+                        }}
+                        className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                        title="Delete conversation"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
               </div>
-            </motion.div>
-          </div>
+            </div>
+          </motion.div>
 
           {/* Chat Interface */}
-          <div className="lg:col-span-2">
-            <motion.div
-              initial={{ x: 50, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ duration: 0.5 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl h-[600px] flex flex-col"
-            >
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="lg:col-span-3"
+          >
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl h-[600px] flex flex-col">
               {/* Chat Header */}
               <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center">
-                    <ChatBubbleLeftRightIcon className="w-5 h-5 mr-2 text-purple-600" />
-                    Conversation
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    {isProcessing && (
-                      <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600 mr-2"></div>
-                        Processing...
-                      </div>
-                    )}
+                <div className="flex items-center space-x-3">
+                  <ChatBubbleLeftRightIcon className="w-6 h-6 text-blue-600" />
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {currentConversation?.title || 'New Conversation'}
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {currentConversation?.metadata?.topic || 'Start a conversation with your AI assistant'}
+                    </p>
                   </div>
                 </div>
               </div>
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                <AnimatePresence>
-                  {messages.map((message) => (
-                    <motion.div
-                      key={message.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.3 }}
-                      className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                {messages.length === 0 && (
+                  <div className="text-center text-gray-500 dark:text-gray-400 py-12">
+                    <ChatBubbleLeftRightIcon className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                    <p>Start a conversation with your AI assistant</p>
+                    <p className="text-sm mt-2">You can ask questions, upload files, or record voice messages</p>
+                  </div>
+                )}
+
+                {messages.map((message) => (
+                  <motion.div
+                    key={message.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
+                        message.role === 'user'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                      }`}
                     >
-                      <div
-                        className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
-                          message.type === 'user'
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
-                        }`}
-                      >
-                        <p className="text-sm">{message.content}</p>
-                        <p className="text-xs opacity-70 mt-1">
-                          {message.timestamp.toLocaleTimeString()}
+                      <div className="space-y-2">
+                        {/* Message content */}
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        
+                        {/* Attachments */}
+                        {message.metadata?.attachments && message.metadata.attachments.length > 0 && (
+                          <div className="space-y-2">
+                            {message.metadata.attachments.map((attachment, index) => (
+                              <div key={index} className="flex items-center space-x-2 text-xs opacity-80">
+                                <span>{getFileIcon(attachment.type)}</span>
+                                <span>{attachment.name}</span>
+                                <span>({formatFileSize(attachment.size)})</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Timestamp */}
+                        <p className="text-xs opacity-70 text-right">
+                          {new Date(message.timestamp).toLocaleTimeString()}
                         </p>
                       </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+                    </div>
+                  </motion.div>
+                ))}
 
-                {/* Current Transcript */}
-                {transcript && (
+                {/* Streaming response */}
+                {streamingText && (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex justify-end"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex justify-start"
                   >
-                    <div className="max-w-xs lg:max-w-md px-4 py-3 rounded-2xl bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200">
-                      <p className="text-sm italic">"{transcript}"</p>
+                    <div className="max-w-xs lg:max-w-md px-4 py-3 rounded-2xl bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white">
+                      <p className="text-sm whitespace-pre-wrap">{streamingText}</p>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                        <span className="text-xs text-gray-500">AI is typing...</span>
+                      </div>
                     </div>
                   </motion.div>
                 )}
+
+                <div ref={messagesEndRef} />
               </div>
+
+              {/* Suggestions */}
+              {showSuggestions && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="px-6 pb-4"
+                >
+                  <div className="flex flex-wrap gap-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-400 mr-2">Suggestions:</span>
+                    {['Help with translation', 'Process a document', 'Analyze an image', 'Platform features'].map((suggestion, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
 
               {/* Input Area */}
               <div className="p-6 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="text"
-                    placeholder="Type a message or use voice commands..."
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                        processVoiceCommand(e.currentTarget.value)
-                        e.currentTarget.value = ''
-                      }
-                    }}
-                  />
-                  <button
-                    onClick={() => {
-                      const input = document.querySelector('input') as HTMLInputElement
-                      if (input?.value.trim()) {
-                        processVoiceCommand(input.value)
-                        input.value = ''
-                      }
-                    }}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                  >
-                    Send
-                  </button>
+                {/* File attachments */}
+                {selectedFiles.length > 0 && (
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {selectedFiles.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center space-x-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg"
+                      >
+                        <span className="text-lg">{getFileIcon(file.type)}</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300 truncate max-w-32">
+                          {file.name}
+                        </span>
+                        <button
+                          onClick={() => removeFile(index)}
+                          className="text-gray-500 hover:text-red-500 transition-colors"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Input controls */}
+                <div className="flex items-end space-x-3">
+                  <div className="flex-1">
+                    <textarea
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      placeholder="Type your message here..."
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                      rows={3}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          handleSendMessage()
+                        }
+                      }}
+                    />
+                  </div>
+                  
+                  <div className="flex flex-col space-y-2">
+                    {/* File upload */}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-3 text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                      title="Attach files"
+                    >
+                      <PaperClipIcon className="w-5 h-5" />
+                    </button>
+                    
+                    {/* Voice recording */}
+                    <button
+                      onClick={isRecording ? stopRecording : startRecording}
+                      className={`p-3 rounded-lg transition-colors ${
+                        isRecording
+                          ? 'text-red-600 bg-red-100 dark:bg-red-900/20'
+                          : 'text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                      }`}
+                      title={isRecording ? 'Stop recording' : 'Start voice recording'}
+                    >
+                      {isRecording ? <StopIcon className="w-5 h-5" /> : <MicrophoneIcon className="w-5 h-5" />}
+                    </button>
+                    
+                    {/* Send button */}
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={isLoading || (!inputText.trim() && selectedFiles.length === 0)}
+                      className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title="Send message"
+                    >
+                      <PaperAirplaneIcon className="w-5 h-5" />
+                    </button>
+                    
+                    {/* Streaming button */}
+                    <button
+                      onClick={handleStreamingResponse}
+                      disabled={isLoading || (!inputText.trim() && selectedFiles.length === 0)}
+                      className="p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title="Get streaming response"
+                    >
+                      <PlayIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,audio/*,.pdf,.doc,.docx,.txt"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+
+                {/* Help text */}
+                <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                  <p>💡 <strong>Tips:</strong> Upload images for analysis, documents for processing, or record voice messages</p>
+                  <p>🎯 <strong>Features:</strong> Multimodal AI, conversation memory, file attachments, voice input</p>
                 </div>
               </div>
-            </motion.div>
-          </div>
+            </div>
+          </motion.div>
         </div>
-
-        {/* Features Grid */}
-        <motion.div
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="mt-12"
-        >
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white text-center mb-8">
-            Accessibility Features
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              {
-                icon: EyeIcon,
-                title: 'Scene Description',
-                description: 'AI-powered visual description for blind users',
-                color: 'from-blue-500 to-cyan-500'
-              },
-              {
-                icon: DocumentTextIcon,
-                title: 'Document Reading',
-                description: 'Read PDFs, Word docs, and handwritten text',
-                color: 'from-green-500 to-emerald-500'
-              },
-              {
-                icon: MapIcon,
-                title: 'Navigation',
-                description: 'Voice-guided navigation and obstacle detection',
-                color: 'from-purple-500 to-pink-500'
-              },
-              {
-                icon: CameraIcon,
-                title: 'Object Recognition',
-                description: 'Identify objects, people, and text in real-time',
-                color: 'from-orange-500 to-red-500'
-              }
-            ].map((feature, index) => (
-              <motion.div
-                key={feature.title}
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow"
-              >
-                <div className={`w-12 h-12 rounded-lg bg-gradient-to-r ${feature.color} flex items-center justify-center mb-4`}>
-                  <feature.icon className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {feature.description}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
       </div>
     </div>
   )

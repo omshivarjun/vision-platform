@@ -55,7 +55,7 @@ export function PersonalGlossary() {
       return
     }
 
-    addEntryMutation.mutate(newEntry)
+    addEntryMutation.mutate(newEntry as any)
   }
 
   if (!localStorage.getItem('authToken')) {
@@ -180,9 +180,9 @@ export function PersonalGlossary() {
             </div>
           ))}
         </div>
-      ) : glossaryData?.data?.entries?.length > 0 ? (
+      ) : (glossaryData as any)?.data?.entries?.length > 0 ? (
         <div className="space-y-3 max-h-96 overflow-y-auto">
-          {glossaryData.data.entries.map((entry: any, index: number) => (
+          {(glossaryData as any).data.entries.map((entry: any, index: number) => (
             <div
               key={index}
               className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
@@ -215,7 +215,7 @@ export function PersonalGlossary() {
                     <PencilIcon className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => deleteEntryMutation.mutate(index)}
+                    onClick={() => deleteEntryMutation.mutate(index as any)}
                     className="p-1 text-gray-400 hover:text-red-500 transition-colors"
                     title="Delete entry"
                   >

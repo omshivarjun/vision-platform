@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Database Services
   mongodb:
@@ -46,13 +44,13 @@ services:
     networks:
       - vision-network
 
-  # API Service
-  api:
+  # Backend Service
+  backend:
     build:
-      context: ./services/api
+      context: ./backend
       dockerfile: Dockerfile
       target: development
-    container_name: vision-api
+    container_name: vision-backend
     restart: unless-stopped
     environment:
       NODE_ENV: development
@@ -66,11 +64,16 @@ services:
       JWT_REFRESH_SECRET: your-super-secret-refresh-key-change-in-production
       CORS_ORIGIN: http://localhost:3000,http://localhost:19006
       AI_SERVICE_URL: http://ai-service:8000
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_...}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     ports:
       - "3001:3001"
     volumes:
-      - ./services/api:/app
+      - ./backend:/app
       - /app/node_modules
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
     depends_on:
       - mongodb
       - redis
@@ -124,13 +127,13 @@ services:
       NEXT_PUBLIC_AI_SERVICE_URL: http://localhost:8000
       NEXT_PUBLIC_WEBSOCKET_URL: ws://localhost:3001
     ports:
-      - "3000:3000"
+      - "3000:5173"
     volumes:
       - ./apps/web:/app
       - /app/node_modules
       - /app/.next
     depends_on:
-      - api
+      - backend
       - ai-service
     networks:
       - vision-network
@@ -156,7 +159,7 @@ services:
       - ./apps/mobile:/app
       - /app/node_modules
     depends_on:
-      - api
+      - backend
       - ai-service
     networks:
       - vision-network
@@ -174,7 +177,7 @@ services:
       - ./infrastructure/nginx/ssl:/etc/nginx/ssl
     depends_on:
       - web
-      - api
+      - backend
       - ai-service
     networks:
       - vision-network

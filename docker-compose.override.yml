@@ -1,16 +1,16 @@
-version: '3.8'
-
 services:
-  # API Service - Development Override
-  api:
+  # Backend Service - Development Override
+  backend:
     build:
       target: development
     environment:
       NODE_ENV: development
       LOG_LEVEL: debug
     volumes:
-      - ./services/api:/app
+      - ./backend:/app
       - /app/node_modules
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
     command: npm run dev
 
   # AI Service - Development Override

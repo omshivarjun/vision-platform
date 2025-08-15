@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { useMsal } from '@azure/msal-react'
 import { authApi } from '../services/api'
+import { isMsalConfigured } from '../auth/msalConfig'
 import toast from 'react-hot-toast'
 
 interface User {
@@ -8,6 +10,7 @@ interface User {
   firstName: string
   lastName: string
   role: 'user' | 'admin' | 'moderator'
+  provider?: 'email' | 'microsoft'
   preferences?: {
     language: string
     theme: string
@@ -33,6 +36,9 @@ interface AuthContextType {
   updateProfile: (userData: Partial<User>) => Promise<void>
   isLoading: boolean
   isAuthenticated: boolean
+  // Microsoft auth methods
+  loginWithMicrosoft: () => Promise<void>
+  isMicrosoftConfigured: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -40,23 +46,67 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const { instance, accounts } = useMsal()
+
+  // Check if Microsoft auth is configured
+  const isMicrosoftConfigured = isMsalConfigured()
 
   useEffect(() => {
     const token = localStorage.getItem('authToken')
-    if (token) {
+    const msalAccount = localStorage.getItem('msalAccount')
+    
+    if (token || msalAccount) {
       validateToken()
     } else {
       setIsLoading(false)
     }
   }, [])
 
+  // Handle MSAL account changes
+  useEffect(() => {
+    if (accounts.length > 0 && !user) {
+      const msalAccount = accounts[0]
+      const msalUser: User = {
+        id: msalAccount.localAccountId || msalAccount.homeAccountId || '',
+        email: msalAccount.username || '',
+        firstName: msalAccount.name?.split(' ')[0] || '',
+        lastName: msalAccount.name?.split(' ').slice(1).join(' ') || '',
+        role: 'user',
+        provider: 'microsoft',
+      }
+      setUser(msalUser)
+      setIsLoading(false)
+    }
+  }, [accounts, user])
+
   const validateToken = async () => {
     try {
-      const userData = await authApi.getProfile()
-      setUser(userData)
+      // Check if we have a Microsoft account first
+      if (accounts.length > 0) {
+        const msalAccount = accounts[0]
+        const msalUser: User = {
+          id: msalAccount.localAccountId || msalAccount.homeAccountId || '',
+          email: msalAccount.username || '',
+          firstName: msalAccount.name?.split(' ')[0] || '',
+          lastName: msalAccount.name?.split(' ').slice(1).join(' ') || '',
+          role: 'user',
+          provider: 'microsoft',
+        }
+        setUser(msalUser)
+        setIsLoading(false)
+        return
+      }
+
+      // Fallback to email/password token validation
+      const token = localStorage.getItem('authToken')
+      if (token) {
+        const userData = await authApi.getProfile()
+        setUser(userData)
+      }
     } catch (error) {
       localStorage.removeItem('authToken')
       localStorage.removeItem('refreshToken')
+      localStorage.removeItem('msalAccount')
     } finally {
       setIsLoading(false)
     }
@@ -67,10 +117,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await authApi.login(email, password)
       localStorage.setItem('authToken', response.accessToken)
       localStorage.setItem('refreshToken', response.refreshToken)
-      setUser(response.user)
+      setUser({ ...response.user, provider: 'email' })
       toast.success('Login successful!')
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Login failed')
+      throw error
+    }
+  }
+
+  const loginWithMicrosoft = async () => {
+    if (!isMicrosoftConfigured) {
+      toast.error('Microsoft authentication is not configured')
+      return
+    }
+
+    try {
+      // This will be handled by the MicrosoftLoginButton component
+      // We just need to ensure the context is ready
+      toast.success('Redirecting to Microsoft login...')
+    } catch (error: any) {
+      toast.error('Microsoft login failed')
       throw error
     }
   }
@@ -85,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await authApi.register(userData)
       localStorage.setItem('authToken', response.accessToken)
       localStorage.setItem('refreshToken', response.refreshToken)
-      setUser(response.user)
+      setUser({ ...response.user, provider: 'email' })
       toast.success('Registration successful!')
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Registration failed')
@@ -94,8 +160,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
+    // Clear local storage
     localStorage.removeItem('authToken')
     localStorage.removeItem('refreshToken')
+    localStorage.removeItem('msalAccount')
+    
+    // Clear MSAL cache if configured
+    if (isMicrosoftConfigured && accounts.length > 0) {
+      instance.logoutPopup({
+        postLogoutRedirectUri: window.location.origin,
+      })
+    }
+    
     setUser(null)
     toast.success('Logged out successfully')
   }
@@ -119,6 +195,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateProfile,
     isLoading,
     isAuthenticated: !!user,
+    loginWithMicrosoft,
+    isMicrosoftConfigured,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

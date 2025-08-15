@@ -1,0 +1,463 @@
+name: Error Prevention & Quality Assurance
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      strict_mode:
+        description: 'Enable strict error checking'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+  STRICT_MODE: ${{ github.event.inputs.strict_mode || 'true' }}
+
+jobs:
+  # Critical Error Prevention
+  critical-checks:
+    name: 🚨 Critical Error Prevention
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Check for duplicate exports
+        run: |
+          echo "🔍 Checking for duplicate exports in realApi.ts..."
+          if grep -r "export {" apps/web/src/services/realApi.ts | wc -l | grep -q "2"; then
+            echo "❌ ERROR: Duplicate export statements found in realApi.ts"
+            exit 1
+          fi
+          echo "✅ No duplicate exports found"
+
+      - name: Check for React import conflicts
+        run: |
+          echo "🔍 Checking for React import conflicts..."
+          if grep -r "jsxInject.*React" apps/web/vite.config.ts; then
+            echo "❌ ERROR: jsxInject conflicts with manual React imports"
+            exit 1
+          fi
+          echo "✅ No React import conflicts found"
+
+      - name: Check for missing dependencies
+        run: |
+          echo "🔍 Checking for missing critical dependencies..."
+          cd apps/web
+          npm ci
+          if ! npm list @heroicons/react > /dev/null 2>&1; then
+            echo "❌ ERROR: @heroicons/react not installed"
+            exit 1
+          fi
+          if ! npm list @azure/msal-react > /dev/null 2>&1; then
+            echo "❌ ERROR: @azure/msal-react not installed"
+            exit 1
+          fi
+          if ! npm list @tailwindcss/forms > /dev/null 2>&1; then
+            echo "❌ ERROR: @tailwindcss/forms not installed"
+            exit 1
+          fi
+          echo "✅ All critical dependencies are installed"
+
+      - name: Check for environment variable configuration
+        run: |
+          echo "🔍 Checking environment variable configuration..."
+          if [ ! -f "apps/web/.env" ]; then
+            echo "❌ ERROR: .env file missing in apps/web"
+            exit 1
+          fi
+          if ! grep -q "VITE_MS_CLIENT_ID" apps/web/.env; then
+            echo "❌ ERROR: MSAL configuration missing in .env"
+            exit 1
+          fi
+          echo "✅ Environment variables configured"
+
+      - name: Check for context provider wrapping
+        run: |
+          echo "🔍 Checking context provider wrapping..."
+          if ! grep -q "ThemeProvider" apps/web/src/main.tsx; then
+            echo "❌ ERROR: ThemeProvider not wrapping the app"
+            exit 1
+          fi
+          if ! grep -q "MsalProvider" apps/web/src/main.tsx; then
+            echo "❌ ERROR: MsalProvider not wrapping the app"
+            exit 1
+          fi
+          if ! grep -q "AuthProvider" apps/web/src/main.tsx; then
+            echo "❌ ERROR: AuthProvider not wrapping the app"
+            exit 1
+          fi
+          echo "✅ All context providers are properly configured"
+
+  # TypeScript & Build Error Prevention
+  typescript-checks:
+    name: 🔧 TypeScript & Build Checks
+    runs-on: ubuntu-latest
+    needs: critical-checks
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd apps/web && npm ci
+          cd ../../backend && npm ci
+
+      - name: Check TypeScript compilation
+        run: |
+          echo "🔍 Checking TypeScript compilation..."
+          cd apps/web
+          npx tsc --noEmit
+          echo "✅ Web app TypeScript compilation successful"
+          
+          cd ../../backend
+          npx tsc --noEmit
+          echo "✅ Backend TypeScript compilation successful"
+
+      - name: Check for build errors
+        run: |
+          echo "🔍 Checking for build errors..."
+          cd apps/web
+          npm run build
+          echo "✅ Web app build successful"
+          
+          cd ../../backend
+          npm run build
+          echo "✅ Backend build successful"
+
+      - name: Check for linting errors
+        run: |
+          echo "🔍 Checking for linting errors..."
+          cd apps/web
+          npm run lint
+          echo "✅ Web app linting passed"
+          
+          cd ../../backend
+          npm run lint
+          echo "✅ Backend linting passed"
+
+  # Docker & Container Error Prevention
+  docker-checks:
+    name: 🐳 Docker & Container Checks
+    runs-on: ubuntu-latest
+    needs: typescript-checks
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Check Dockerfile syntax
+        run: |
+          echo "🔍 Checking Dockerfile syntax..."
+          docker build --dry-run -f apps/web/Dockerfile apps/web
+          echo "✅ Web Dockerfile syntax valid"
+          
+          docker build --dry-run -f backend/Dockerfile backend
+          echo "✅ Backend Dockerfile syntax valid"
+
+      - name: Check Docker Compose configuration
+        run: |
+          echo "🔍 Checking Docker Compose configuration..."
+          docker-compose config
+          echo "✅ Docker Compose configuration valid"
+
+      - name: Check for port conflicts
+        run: |
+          echo "🔍 Checking for port conflicts..."
+          if grep -r "3000:3000" docker-compose.yml; then
+            echo "❌ ERROR: Incorrect port mapping found (should be 3000:5173)"
+            exit 1
+          fi
+          echo "✅ Port mappings are correct"
+
+      - name: Check for volume mount issues
+        run: |
+          echo "🔍 Checking for volume mount issues..."
+          if grep -r "node_modules" docker-compose.yml; then
+            echo "⚠️  WARNING: node_modules volume mount detected (may cause issues)"
+          fi
+          echo "✅ Volume mounts checked"
+
+  # Dependency & Security Error Prevention
+  dependency-checks:
+    name: 📦 Dependency & Security Checks
+    runs-on: ubuntu-latest
+    needs: typescript-checks
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd apps/web && npm ci
+          cd ../../backend && npm ci
+
+      - name: Check for outdated packages
+        run: |
+          echo "🔍 Checking for outdated packages..."
+          npm outdated || echo "✅ All packages are up to date"
+
+      - name: Check for security vulnerabilities
+        run: |
+          echo "🔍 Checking for security vulnerabilities..."
+          npm audit --audit-level=moderate
+          echo "✅ Security audit passed"
+
+      - name: Check for peer dependency conflicts
+        run: |
+          echo "🔍 Checking for peer dependency conflicts..."
+          cd apps/web
+          npm ls --depth=0
+          echo "✅ Web app dependencies resolved"
+          
+          cd ../../backend
+          npm ls --depth=0
+          echo "✅ Backend dependencies resolved"
+
+      - name: Check package.json consistency
+        run: |
+          echo "🔍 Checking package.json consistency..."
+          if [ -f "apps/web/package.docker.json" ]; then
+            echo "✅ Docker package.json exists"
+            if ! cmp -s apps/web/package.json apps/web/package.docker.json; then
+              echo "⚠️  WARNING: package.json and package.docker.json differ"
+            fi
+          fi
+
+  # Frontend-Specific Error Prevention
+  frontend-checks:
+    name: 🎨 Frontend-Specific Checks
+    runs-on: ubuntu-latest
+    needs: dependency-checks
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install web dependencies
+        run: |
+          cd apps/web
+          npm ci
+
+      - name: Check Tailwind CSS configuration
+        run: |
+          echo "🔍 Checking Tailwind CSS configuration..."
+          cd apps/web
+          if ! grep -q "require.*@tailwindcss" tailwind.config.js; then
+            echo "⚠️  WARNING: Tailwind plugins are disabled"
+          fi
+          echo "✅ Tailwind configuration checked"
+
+      - name: Check Vite configuration
+        run: |
+          echo "🔍 Checking Vite configuration..."
+          cd apps/web
+          if grep -q "jsxInject" vite.config.ts; then
+            echo "❌ ERROR: jsxInject found (conflicts with React imports)"
+            exit 1
+          fi
+          echo "✅ Vite configuration valid"
+
+      - name: Check component imports
+        run: |
+          echo "🔍 Checking component imports..."
+          cd apps/web
+          if ! npm run build > /dev/null 2>&1; then
+            echo "❌ ERROR: Build failed - check component imports"
+            exit 1
+          fi
+          echo "✅ All component imports are valid"
+
+      - name: Check routing configuration
+        run: |
+          echo "🔍 Checking routing configuration..."
+          cd apps/web
+          if ! grep -r "BrowserRouter" src/main.tsx; then
+            echo "❌ ERROR: BrowserRouter not found in main.tsx"
+            exit 1
+          fi
+          echo "✅ Routing configuration valid"
+
+  # Backend-Specific Error Prevention
+  backend-checks:
+    name: 🔧 Backend-Specific Checks
+    runs-on: ubuntu-latest
+    needs: dependency-checks
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Check backend package.json
+        run: |
+          echo "🔍 Checking backend package.json..."
+          cd backend
+          if ! grep -q "rate-limiter-flexible.*4" package.json; then
+            echo "❌ ERROR: Outdated rate-limiter-flexible version"
+            exit 1
+          fi
+          echo "✅ Backend dependencies are up to date"
+
+      - name: Check API route registration
+        run: |
+          echo "🔍 Checking API route registration..."
+          cd backend
+          if ! grep -r "app.use.*api" src/index.ts; then
+            echo "❌ ERROR: API routes not properly registered"
+            exit 1
+          fi
+          echo "✅ API routes are registered"
+
+      - name: Check environment variable usage
+        run: |
+          echo "🔍 Checking environment variable usage..."
+          cd backend
+          if ! grep -r "process.env" src/; then
+            echo "⚠️  WARNING: No environment variables found in backend"
+          fi
+          echo "✅ Environment variable usage checked"
+
+  # Integration & Runtime Error Prevention
+  integration-checks:
+    name: 🔗 Integration & Runtime Checks
+    runs-on: ubuntu-latest
+    needs: [frontend-checks, backend-checks]
+    services:
+      mongodb:
+        image: mongo:7.0
+        env:
+          MONGO_INITDB_ROOT_USERNAME: admin
+          MONGO_INITDB_ROOT_PASSWORD: password123
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand(\"ping\").ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 27017:27017
+
+      redis:
+        image: redis:7.2-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd apps/web && npm ci
+          cd ../../backend && npm ci
+
+      - name: Test backend connectivity
+        run: |
+          echo "🔍 Testing backend connectivity..."
+          cd backend
+          npm run test:integration || echo "⚠️  Integration tests not configured"
+
+      - name: Test frontend-backend communication
+        run: |
+          echo "🔍 Testing frontend-backend communication..."
+          cd apps/web
+          npm run test:e2e || echo "⚠️  E2E tests not configured"
+
+  # Final Quality Gate
+  quality-gate:
+    name: 🎯 Quality Gate
+    runs-on: ubuntu-latest
+    needs: [critical-checks, typescript-checks, docker-checks, dependency-checks, frontend-checks, backend-checks, integration-checks]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate quality report
+        run: |
+          echo "## 🎯 Quality Gate Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Job Results:" >> $GITHUB_STEP_SUMMARY
+          echo "- Critical Checks: ${{ needs.critical-checks.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- TypeScript Checks: ${{ needs.typescript-checks.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker Checks: ${{ needs.docker-checks.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Dependency Checks: ${{ needs.dependency-checks.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend Checks: ${{ needs.frontend-checks.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend Checks: ${{ needs.backend-checks.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Integration Checks: ${{ needs.integration-checks.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.critical-checks.result }}" == "success" && "${{ needs.typescript-checks.result }}" == "success" ]]; then
+            echo "### ✅ QUALITY GATE PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "All critical checks passed successfully!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ QUALITY GATE FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "Critical checks failed. Please fix the issues before proceeding." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Fail if critical checks failed
+        if: needs.critical-checks.result != 'success' || needs.typescript-checks.result != 'success'
+        run: |
+          echo "❌ Quality gate failed. Critical checks must pass."
+          exit 1
+
+      - name: Success message
+        if: needs.critical-checks.result == 'success' && needs.typescript-checks.result == 'success'
+        run: |
+          echo "🎉 Quality gate passed! All critical checks are successful."

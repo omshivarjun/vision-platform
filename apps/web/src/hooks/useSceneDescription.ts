@@ -18,7 +18,7 @@ export function useSceneDescription() {
     formData.append('includeObjects', request.includeObjects.toString())
     formData.append('includeText', request.includeText.toString())
 
-    return analyzeSceneMutation.mutateAsync(formData)
+    return analyzeSceneMutation.mutateAsync(formData as any)
   }
 
   return {
@@ -38,7 +38,7 @@ export function useObjectDetection() {
     formData.append('image', image)
     formData.append('confidence', confidence.toString())
 
-    return detectObjectsMutation.mutateAsync(formData)
+    return detectObjectsMutation.mutateAsync(formData as any)
   }
 
   return {

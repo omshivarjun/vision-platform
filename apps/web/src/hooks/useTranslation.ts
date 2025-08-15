@@ -41,6 +41,11 @@ export function useTranslation() {
   })
 
   return {
+    // Main translation function that TranslationPage expects
+    translateText: (request: TranslationRequest) => translateMutation.mutateAsync(request),
+    isLoading: translateMutation.isPending,
+    
+    // Original mutation functions
     translate: translateMutation.mutate,
     translateAsync: translateMutation.mutateAsync,
     isTranslating: translateMutation.isPending,

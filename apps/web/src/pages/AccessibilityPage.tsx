@@ -1,9 +1,9 @@
 import React from 'react'
-import { ObjectDetector } from '../components/ObjectDetector'
-import { VoiceCommands } from '../components/VoiceCommands'
-import { NavigationAssistant } from '../components/NavigationAssistant'
-import { AccessibilitySettings } from '../components/AccessibilitySettings'
-import { OCRReader } from '../components/OCRReader'
+import ObjectDetector from '../components/ObjectDetector'
+import VoiceCommands from '../components/VoiceCommands'
+import NavigationAssistant from '../components/NavigationAssistant'
+import AccessibilitySettings from '../components/AccessibilitySettings'
+import OCRReader from '../components/OCRReader'
 
 export function AccessibilityPage() {
   return (
