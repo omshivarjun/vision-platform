@@ -4,7 +4,7 @@
   "description": "AI-powered platform for multimodal translation and accessibility",
   "private": true,
   "scripts": {
-    "dev": "docker-compose up -d",
+    "dev": "cd apps/web && npm run dev",
     "platform": "powershell -ExecutionPolicy Bypass -File open-platform.ps1",
     "start": "powershell -ExecutionPolicy Bypass -File start-windows.ps1",
     "setup": "powershell -ExecutionPolicy Bypass -File setup-windows.ps1",
