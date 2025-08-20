@@ -269,6 +269,54 @@ export const documentApi = {
     }>(`/documents?${params.toString()}`)
   },
 
+  async processDocumentWithOCR(file: File, options?: {
+    language?: string
+    enableTableDetection?: boolean
+    enableLayoutAnalysis?: boolean
+    provider?: 'tesseract' | 'google-vision' | 'azure-vision'
+  }) {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (options?.language) formData.append('language', options.language)
+    if (options?.enableTableDetection !== undefined) formData.append('enableTableDetection', options.enableTableDetection.toString())
+    if (options?.enableLayoutAnalysis !== undefined) formData.append('enableLayoutAnalysis', options.enableLayoutAnalysis.toString())
+    if (options?.provider) formData.append('provider', options.provider)
+
+    return apiClient.upload<{
+      text: string
+      confidence: number
+      language: string
+      blocks?: Array<{
+        text: string
+        confidence: number
+        boundingBox: [number, number, number, number]
+        type?: 'text' | 'title' | 'heading' | 'caption'
+      }>
+      tables?: Array<{
+        rows: Array<{
+          cells: Array<{
+            text: string
+            confidence: number
+            boundingBox: [number, number, number, number]
+          }>
+        }>
+        confidence: number
+        boundingBox: [number, number, number, number]
+      }>
+      layout?: {
+        orientation: number
+        textAngle: number
+        handwriting: boolean
+        readingOrder: 'ltr' | 'rtl' | 'ttb'
+      }
+      processingTime: number
+      provider: string
+      originalFileName: string
+      fileSize: number
+      processingComplete: boolean
+    }>('/ocr/extract', formData)
+  },
+
   async deleteDocument(documentId: string) {
     return apiClient.delete<{ success: boolean }>(`/documents/${documentId}`)
   },
@@ -626,52 +674,180 @@ export const translationApi = {
     if (filters?.offset) params.append('offset', filters.offset.toString())
 
     return apiClient.get<{
-      translations: Array<{
-        id: string
-        sourceText: string
-        translatedText: string
-        sourceLanguage: string
-        targetLanguage: string
-        timestamp: string
-        isFavorite: boolean
-      }>
-      total: number
-    }>(`/translation/history/${userId}?${params.toString()}`)
-  },
-
-  async deleteHistoryItem(itemId: string) {
-    return apiClient.delete<{ success: boolean }>(`/translation/history/${itemId}`)
-  },
-
-  async favoriteHistoryItem(itemId: string, isFavorite: boolean) {
-    return apiClient.put<{ success: boolean }>(`/translation/history/${itemId}/favorite`, { isFavorite })
-  },
-}
-
-// OCR API
+     // Enhanced OCR API with table detection and cloud providers
 export const ocrApi = {
-  async extractText(image: File, options?: {
+  async extractText(file: File, options?: {
     language?: string
-    confidence?: number
+    enableTableDetection?: boolean
+    provider?: 'tesseract' | 'google-vision' | 'azure-vision'
   }) {
     const formData = new FormData()
-    formData.append('image', image)
+    formData.append('file', file)
     if (options?.language) formData.append('language', options.language)
-    if (options?.confidence) formData.append('confidence', options.confidence.toString())
+    if (options?.enableTableDetection !== undefined) formData.append('enableTableDetection', options.enableTableDetection.toString())
+    if (options?.provider) formData.append('provider', options.provider)
 
     return apiClient.upload<{
       text: string
       confidence: number
       language: string
-      regions: Array<{
+      blocks?: Array<{
         text: string
         confidence: number
         boundingBox: [number, number, number, number]
+        type?: 'text' | 'title' | 'heading' | 'caption'
       }>
+      tables?: Array<{
+        rows: Array<{
+          cells: Array<{
+            text: string
+            confidence: number
+            boundingBox: [number, number, number, number]
+          }>
+        }>
+        confidence: number
+        boundingBox: [number, number, number, number]
+      }>
+      layout?: {
+        orientation: number
+        textAngle: number
+        handwriting: boolean
+        readingOrder: 'ltr' | 'rtl' | 'ttb'
+      }
+      processingTime: number
+      provider: string
+      originalFileName: string
+      fileSize: number
+      processingComplete: boolean
     }>('/ocr/extract', formData)
   },
 
-  async batchExtract(images: File[], options?: {
+  async batchExtract(files: File[], options?: {
+    language?: string
+    enableTableDetection?: boolean
+    provider?: 'tesseract' | 'google-vision' | 'azure-vision'
+  }) {
+    const formData = new FormData()
+    files.forEach((file) => {
+      formData.append('files', file)
+    })
+    if (options?.language) formData.append('language', options.language)
+    if (options?.enableTableDetection !== undefined) formData.append('enableTableDetection', options.enableTableDetection.toString())
+    if (options?.provider) formData.append('provider', options.provider)
+
+    return apiClient.upload<{
+      results: Array<{
+        fileId: string
+        originalFileName: string
+        text: string
+        confidence: number
+        language: string
+        blocks?: Array<{
+          text: string
+          confidence: number
+          boundingBox: [number, number, number, number]
+          type?: 'text' | 'title' | 'heading' | 'caption'
+        }>
+        tables?: Array<{
+          rows: Array<{
+            cells: Array<{
+              text: string
+              confidence: number
+              boundingBox: [number, number, number, number]
+            }>
+          }>
+          confidence: number
+          boundingBox: [number, number, number, number]
+        }>
+        layout?: {
+          orientation: number
+          textAngle: number
+          handwriting: boolean
+          readingOrder: 'ltr' | 'rtl' | 'ttb'
+        }
+        processingTime: number
+        provider: string
+      }>
+      errors: Array<{
+        fileName: string
+        error: string
+      }>
+      totalProcessed: number
+      totalErrors: number
+      processingComplete: boolean
+    }>('/ocr/batch-extract', formData)
+  },
+
+  async getSupportedLanguages() {
+    return apiClient.get<{
+      languages: Array<{
+        code: string
+        name: string
+        nativeName: string
+        tesseractCode: string
+      }>
+      providers: Array<{
+        name: string
+        displayName: string
+        available: boolean
+        description: string
+      }>
+    }>('/ocr/languages')
+  },
+
+  async getCapabilities() {
+    return apiClient.get<{
+      maxFileSize: number
+      supportedFormats: string[]
+      features: {
+        tableDetection: boolean
+        layoutAnalysis: boolean
+        confidenceScoring: boolean
+        multiLanguageSupport: boolean
+        batchProcessing: boolean
+        cloudProviders: boolean
+      }
+      limits: {
+        maxBatchFiles: number
+        maxConcurrentJobs: number
+        processingTimeout: number
+      }
+    }>('/ocr/capabilities')
+  },
+
+  async downloadResults(ocrResult: any, fileName: string, format: 'txt' | 'json' | 'csv' | 'html') {
+    const response = await fetch(`${API_BASE_URL}/ocr/download/${format}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ocrResult,
+        fileName,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status}`)
+    }
+
+    // Return blob for file download
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    
+    // Auto-download the file
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${fileName}.${format}`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    return { success: true }
+  },
+
+  async batchExtractText(images: File[], options?: {
     language?: string
     confidence?: number
   }) {

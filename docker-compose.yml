@@ -44,7 +44,7 @@ services:
     networks:
       - vision-network
 
-  # Backend Service
+  # Backend API
   backend:
     build:
       context: ./backend
@@ -55,18 +55,39 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3001
-      MONGODB_URI: mongodb://admin:password123@mongodb:27017/vision_platform?authSource=admin
-      REDIS_URL: redis://redis:6379
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin123
-      JWT_SECRET: your-super-secret-jwt-key-change-in-production
-      JWT_REFRESH_SECRET: your-super-secret-refresh-key-change-in-production
+      MONGODB_URI: ${MONGODB_URI}
+      REDIS_URL: ${REDIS_URL}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       CORS_ORIGIN: http://localhost:3000,http://localhost:19006
       AI_SERVICE_URL: http://ai-service:8000
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_...}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Translation Service Configuration - FIXED
+      DEFAULT_TRANSLATION_PROVIDER: ${DEFAULT_TRANSLATION_PROVIDER:-huggingface}
+      ENABLE_FUNCTION_CALLING: ${ENABLE_FUNCTION_CALLING:-false}
+      TRANSLATION_CACHE_TTL: ${TRANSLATION_CACHE_TTL:-3600}
+      MAX_TRANSLATION_LENGTH: ${MAX_TRANSLATION_LENGTH:-5000}
+      # Test Configuration
+      TEST_MONGODB_URI: ${TEST_MONGODB_URI}
+      TEST_REDIS_URL: ${TEST_REDIS_URL}
+      TEST_TIMEOUT: ${TEST_TIMEOUT:-10000}
+      E2E_TIMEOUT: ${E2E_TIMEOUT:-30000}
+      # Google Cloud Platform (GCP) Services
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
+      GOOGLE_CLOUD_CREDENTIALS: ${GOOGLE_CLOUD_CREDENTIALS:-}
+      GOOGLE_CLOUD_STORAGE_BUCKET: ${GOOGLE_CLOUD_STORAGE_BUCKET:-vision-platform-files}
+      GOOGLE_CLOUD_REGION: ${GOOGLE_CLOUD_REGION:-us-central1}
+      GOOGLE_CLOUD_ZONE: ${GOOGLE_CLOUD_ZONE:-us-central1-a}
+      # Push Notifications
+      FCM_SERVER_KEY: ${FCM_SERVER_KEY:-}
+      APN_KEY_ID: ${APN_KEY_ID:-}
+      APN_TEAM_ID: ${APN_TEAM_ID:-}
+      APN_PRIVATE_KEY: ${APN_PRIVATE_KEY:-}
     ports:
       - "3001:3001"
     volumes:
@@ -91,8 +112,8 @@ services:
     restart: unless-stopped
     environment:
       PYTHONPATH: /app
-      MONGODB_URI: mongodb://admin:password123@mongodb:27017/vision_platform?authSource=admin
-      REDIS_URL: redis://redis:6379
+      MONGODB_URI: ${MONGODB_URI}
+      REDIS_URL: ${REDIS_URL}
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin123
@@ -101,6 +122,11 @@ services:
       HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-}
       MODEL_CACHE_DIR: /app/models
       ENABLE_GPU: ${ENABLE_GPU:-false}
+      # AI Service Configuration - FIXED
+      DEFAULT_TRANSLATION_PROVIDER: ${DEFAULT_TRANSLATION_PROVIDER:-mock}
+      ENABLE_FUNCTION_CALLING: ${ENABLE_FUNCTION_CALLING:-false}
+      TRANSLATION_CACHE_TTL: ${TRANSLATION_CACHE_TTL:-3600}
+      MAX_TRANSLATION_LENGTH: ${MAX_TRANSLATION_LENGTH:-5000}
     ports:
       - "8000:8000"
     volumes:

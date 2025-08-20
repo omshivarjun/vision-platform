@@ -16,10 +16,11 @@ export interface DocumentParseResult {
       level: number
     }>
     headings: string[]
-    paragraphs: string[]
-  }
-  ocrResults?: {
+    paragraph  ocrResults?: {
     confidence: number
+    language: string
+    provider: string
+    processingTime: number
     textBlocks: Array<{
       text: string
       confidence: number
@@ -29,7 +30,35 @@ export interface DocumentParseResult {
         width: number
         height: number
       }
+      type?: 'text' | 'title' | 'heading' | 'caption'
     }>
+    tables?: Array<{
+      rows: Array<{
+        cells: Array<{
+          text: string
+          confidence: number
+          boundingBox: {
+            x: number
+            y: number
+            width: number
+            height: number
+          }
+        }>
+      }>
+      confidence: number
+      boundingBox: {
+        x: number
+        y: number
+        width: number
+        height: number
+      }
+    }>
+    layout?: {
+      orientation: number
+      textAngle: number
+      handwriting: boolean
+      readingOrder: 'ltr' | 'rtl' | 'ttb'
+    }
   }
 }
 
@@ -37,13 +66,115 @@ export interface DocumentUploadProgress {
   fileName: string
   progress: number
   status: 'uploading' | 'processing' | 'completed' | 'error'
-  message?: string
+}
+
+// Enhanced OCR result interface
+interface EnhancedOCRResult {
+  text: string
+  confidence: number
+  language: string
+  blocks?: Array<{
+    text: string
+    confidence: number
+    boundingBox: [number, number, number, number]
+    type?: 'text' | 'title' | 'heading' | 'caption'
+  }>
+  tables?: Array<{
+    rows: Array<{
+      cells: Array<{
+        text: string
+        confidence: number
+        boundingBox: [number, number, number, number]
+      }>
+    }>
+    confidence: number
+    boundingBox: [number, number, number, number]
+  }>
+  layout?: {
+    orientation: number
+    textAngle: number
+    handwriting: boolean
+    readingOrder: 'ltr' | 'rtl' | 'ttb'
+  }
+  processingTime: number
+  provider: string
 }
 
 // Document processing service
 export const documentService = {
+  // Process document with enhanced OCR
+  async processDocumentWithOCR(file: File, ocrResult: EnhancedOCRResult): Promise<DocumentParseResult> {
+    const startTime = Date.now()
+    
+    try {
+      // Convert OCR result to document format
+      const textBlocks = ocrResult.blocks?.map(block => ({
+        text: block.text,
+        confidence: block.confidence,
+        boundingBox: {
+          x: block.boundingBox[0],
+          y: block.boundingBox[1],
+          width: block.boundingBox[2] - block.boundingBox[0],
+          height: block.boundingBox[3] - block.boundingBox[1]
+        },
+        type: block.type
+      })) || []
+
+      const tables = ocrResult.tables?.map(table => ({
+        rows: table.rows.map(row => ({
+          cells: row.cells.map(cell => ({
+            text: cell.text,
+            confidence: cell.confidence,
+            boundingBox: {
+              x: cell.boundingBox[0],
+              y: cell.boundingBox[1],
+              width: cell.boundingBox[2] - cell.boundingBox[0],
+              height: cell.boundingBox[3] - cell.boundingBox[1]
+            }
+          }))
+        })),
+        confidence: table.confidence,
+        boundingBox: {
+          x: table.boundingBox[0],
+          y: table.boundingBox[1],
+          width: table.boundingBox[2] - table.boundingBox[0],
+          height: table.boundingBox[3] - table.boundingBox[1]
+        }
+      })) || []
+
+      // Analyze document structure
+      const structure = this.analyzeDocumentStructure(ocrResult.text)
+
+      const result: DocumentParseResult = {
+        text: ocrResult.text,
+        metadata: {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          language: ocrResult.language,
+          processingTime: Date.now() - startTime
+        },
+        structure,
+        ocrResults: {
+          confidence: ocrResult.confidence,
+          language: ocrResult.language,
+          provider: ocrResult.provider,
+          processingTime: ocrResult.processingTime,
+          textBlocks,
+          tables,
+          layout: ocrResult.layout
+        }
+      }
+
+      return result
+    } catch (error) {
+      console.error('Document processing with OCR failed:', error)
+      throw new Error(`Failed to process ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  },
+
   // Process uploaded file
-  async processDocument(file: File): Promise<DocumentParseResult> {
+  async processDocument(file: File): Promise<DocumentParseResult> {romise<DocumentParseResult> {
     const startTime = Date.now()
     
     try {

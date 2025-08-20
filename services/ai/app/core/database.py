@@ -24,7 +24,11 @@ async def init_db():
         # Initialize MongoDB
         logger.info("Connecting to MongoDB...")
         mongodb_client = motor.motor_asyncio.AsyncIOMotorClient(settings.MONGODB_URI)
-        mongodb_database = mongodb_client.get_database()
+        # Get database name from URI or use default
+        db_name = settings.MONGODB_URI.split('/')[-1].split('?')[0] if '/' in settings.MONGODB_URI else 'vision_platform'
+        if not db_name or db_name == '':
+            db_name = 'vision_platform'
+        mongodb_database = mongodb_client.get_database(db_name)
         
         # Test MongoDB connection
         await mongodb_client.admin.command('ping')
