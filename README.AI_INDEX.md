@@ -216,7 +216,7 @@ Vision Platform/
 ### **Error Prevention & Quality:**
 - `ERROR_PREVENTION_GUIDE.md` - Complete error catalog
 - `ERROR_PREVENTION_SUMMARY.md` - System overview
-- `.github/workflows/error-prevention.yml` - CI/CD checks
+- `.github/workflows/ci.yml` - Recommended CI (install, type-check, build, test)
 
 ### **Setup & Configuration:**
 - `setup-error-prevention.ps1` - Automated setup script

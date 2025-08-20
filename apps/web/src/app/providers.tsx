@@ -28,6 +28,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <AuthProvider>
           {children}
         </AuthProvider>
+        {/* Accessible live region for global announcements */}
+        <div aria-live="polite" aria-atomic="true" className="sr-only" id="global-live-region"></div>
         <Toaster
           position="top-right"
           toastOptions={{

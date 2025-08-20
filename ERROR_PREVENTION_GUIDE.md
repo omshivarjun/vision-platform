@@ -67,7 +67,9 @@ This guide documents all the critical errors we've encountered and fixed in the 
 
 ## 🛡️ Error Prevention Systems
 
-### 1. **GitHub Actions Workflow** (`error-prevention.yml`)
+### 1. **GitHub Actions CI** (`.github/workflows/ci.yml`)
+
+Note: A CI workflow is not yet present in this repo. Create `.github/workflows/ci.yml` with the jobs below.
 
 #### **Critical Error Prevention Job**
 - ✅ Checks for duplicate exports

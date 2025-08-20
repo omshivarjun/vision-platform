@@ -33,7 +33,17 @@
     "type-check:mobile": "echo 'Mobile app type-checking skipped due to TypeScript configuration issues'",
     "dev:web": "cd apps/web && npm run dev",
     "dev:mobile": "cd apps/mobile && npm run dev",
-    "install:all": "npm install && cd packages/shared && npm install && cd ../../apps/web && npm install && cd ../mobile && npm install"
+    "install:all": "npm install && cd packages/shared && npm install && cd ../../apps/web && npm install && cd ../mobile && npm install",
+    "lint": "npm run lint:shared && npm run lint:web",
+    "test": "npm run test:shared && npm run test:web",
+    "test:coverage": "npm run test:coverage:shared && npm run test:coverage:web",
+    "test:integration": "cd backend && npm run test:integration",
+    "test:performance": "cd apps/web && npm run test:performance",
+    "docs:generate": "node scripts/generate-docs.js",
+    "build:all": "npm run build:shared && npm run build:web",
+    "migrate": "node scripts/migrate.js",
+    "db:setup": "npm run migrate",
+    "db:reset": "docker-compose down -v && docker-compose up -d && sleep 10 && npm run migrate"
   },
   "keywords": [
     "ai",
@@ -47,17 +57,33 @@
   "author": "Vision Platform Team",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "@types/node": "^20.19.11",
+    "@types/react": "^19.1.10",
+    "typescript": "^5.9.2"
   },
   "dependencies": {
     "@azure/msal-browser": "^4.20.0",
     "@azure/msal-react": "^3.0.18",
+    "@google-cloud/common": "^6.0.0",
+    "@google-cloud/speech": "^7.2.0",
+    "@google-cloud/storage": "^7.17.0",
+    "@google-cloud/text-to-speech": "^6.2.0",
+    "@google-cloud/translate": "^9.2.0",
+    "@google-cloud/vision": "^5.3.3",
+    "@sentry/nextjs": "^10.5.0",
+    "@sentry/node": "^10.5.0",
+    "@sentry/tracing": "^7.120.4",
     "@stripe/react-stripe-js": "^3.9.0",
     "@stripe/stripe-js": "^7.8.0",
     "docx-preview": "^0.3.6",
+    "google-auth-library": "^10.2.1",
+    "ioredis": "^5.7.0",
     "mammoth": "^1.10.0",
+    "mongodb": "^6.18.0",
+    "next": "^15.5.0",
     "pdfjs-dist": "^5.4.54",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
     "react-dropzone": "^14.3.8",
     "react-pdf": "^10.0.1"
   }

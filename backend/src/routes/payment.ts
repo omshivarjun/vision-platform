@@ -85,3 +85,22 @@ router.get('/payment-intent/:paymentIntentId', async (req, res) => {
 })
 
 export default router
+
+// Webhook endpoint (stub)
+// TODO: Verify Stripe signature and update subscription records accordingly
+router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const sig = req.headers['stripe-signature'] as string
+    // In test/dev, skip verification if secret not present
+    let event: Stripe.Event | undefined
+    if (process.env.STRIPE_WEBHOOK_SECRET) {
+      event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET)
+    }
+    // TODO: Update subscription records by event type
+    // switch (event?.type) { case 'customer.subscription.updated': ... }
+    return res.status(200).json({ received: true })
+  } catch (error) {
+    console.error('Stripe webhook error:', error)
+    return res.status(400).send(`Webhook Error`)
+  }
+})

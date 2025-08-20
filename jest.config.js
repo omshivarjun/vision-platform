@@ -2,6 +2,13 @@ module.exports = {
   // Test environment
   testEnvironment: 'node',
   
+  // Test timeouts
+  testTimeout: process.env.TEST_TIMEOUT || 10000,
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+  
+  // Environment variables for tests
+  setupFiles: ['<rootDir>/tests/env-setup.js'],
+  
   // Project roots for monorepo
   projects: [
     {

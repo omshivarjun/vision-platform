@@ -12,6 +12,7 @@ import {
   SpeakerXMarkIcon
 } from '@heroicons/react/24/outline'
 import { documentService, DocumentParseResult, DocumentUploadProgress } from '../services/documentService'
+import { documentApi } from '../services/realApi'
 import toast from 'react-hot-toast'
 
 export default function DocumentReaderPage() {
@@ -80,7 +81,14 @@ export default function DocumentReaderPage() {
             : item
         ))
 
-        // Process document
+        // Create server entry and request extraction (non-blocking for now)
+        try {
+          await documentApi.uploadDocument(file, { language: 'en', extractText: true, extractStructure: true })
+        } catch (e) {
+          // Non-fatal; proceed with local processing as fallback
+        }
+
+        // Process document locally (fallback/demo)
         const result = await documentService.processDocument(file)
         
         // Update progress
@@ -173,17 +181,38 @@ export default function DocumentReaderPage() {
     }
   }
 
-  const downloadText = (doc: DocumentParseResult) => {
-    const blob = new Blob([doc.text], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${doc.metadata.fileName.replace(/\.[^/.]+$/, '')}_extracted.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    toast.success('Text downloaded successfully!')
+  const downloadText = async (doc: DocumentParseResult) => {
+    try {
+      // In a real flow we would have a documentId from the server. For now, fallback to local text.
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/documents/${encodeURIComponent(doc.metadata.fileName)}/text`)
+      if (response.ok) {
+        const text = await response.text()
+        const blob = new Blob([text || doc.text], { type: 'text/plain' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${doc.metadata.fileName.replace(/\.[^/.]+$/, '')}_extracted.txt`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        toast.success('Text downloaded successfully!')
+      } else {
+        // Fallback to client text
+        const blob = new Blob([doc.text], { type: 'text/plain' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${doc.metadata.fileName.replace(/\.[^/.]+$/, '')}_extracted.txt`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        toast.success('Text downloaded (local copy).')
+      }
+    } catch (e) {
+      toast.error('Failed to download text')
+    }
   }
 
   const removeFile = (fileName: string) => {

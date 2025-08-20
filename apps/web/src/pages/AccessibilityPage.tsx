@@ -4,6 +4,7 @@ import VoiceCommands from '../components/VoiceCommands'
 import NavigationAssistant from '../components/NavigationAssistant'
 import AccessibilitySettings from '../components/AccessibilitySettings'
 import OCRReader from '../components/OCRReader'
+import { ToastDemo } from '../components/ToastDemo'
 
 export function AccessibilityPage() {
   return (
@@ -30,6 +31,11 @@ export function AccessibilityPage() {
 
         <div className="mb-12">
           <OCRReader />
+        </div>
+
+        {/* Enhanced Toast System Demo */}
+        <div className="mb-12">
+          <ToastDemo />
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@ import { Toaster } from 'react-hot-toast'
 // Components
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
+import { AccessibilityAnnouncer } from './components/AccessibilityAnnouncer'
 
 // Pages
 import { HomePage } from './pages/HomePage'
@@ -19,6 +20,7 @@ import ProfilePage from './pages/ProfilePage'
 import { AccessibilityPage } from './pages/AccessibilityPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import WorkspacePage from './pages/WorkspacePage'
 
 // Create a client
 const queryClient = new QueryClient({
@@ -43,6 +45,7 @@ function App() {
               <Route path="/documents" element={<DocumentReaderPage />} />
               <Route path="/assistant" element={<GeminiAssistantPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/workspace" element={<WorkspacePage />} />
               <Route path="/payment" element={<PaymentPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/accessibility" element={<AccessibilityPage />} />
@@ -51,6 +54,10 @@ function App() {
             </Routes>
           </main>
           <Footer />
+          
+          {/* Accessibility Announcer for screen readers */}
+          <AccessibilityAnnouncer />
+          
           <Toaster
             position="top-right"
             toastOptions={{
@@ -58,6 +65,12 @@ function App() {
               style: {
                 background: '#363636',
                 color: '#fff',
+                borderRadius: '8px',
+                padding: '12px 16px',
+                fontSize: '14px',
+                lineHeight: '1.4',
+                maxWidth: '400px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
               },
               success: {
                 duration: 3000,
@@ -65,6 +78,11 @@ function App() {
                   primary: '#10B981',
                   secondary: '#fff',
                 },
+                style: {
+                  background: '#065f46',
+                  color: '#fff',
+                  borderLeft: '4px solid #10B981',
+                }
               },
               error: {
                 duration: 5000,
@@ -72,8 +90,26 @@ function App() {
                   primary: '#EF4444',
                   secondary: '#fff',
                 },
+                style: {
+                  background: '#7f1d1d',
+                  color: '#fff',
+                  borderLeft: '4px solid #EF4444',
+                  fontWeight: '500',
+                }
               },
+              loading: {
+                style: {
+                  background: '#1e40af',
+                  color: '#fff',
+                  borderLeft: '4px solid #3b82f6',
+                }
+              }
             }}
+            containerStyle={{
+              top: 20,
+              right: 20,
+            }}
+            gutter={8}
           />
         </div>
       </DNDProvider>

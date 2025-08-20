@@ -26,6 +26,8 @@ import { accessibilityRoutes } from './routes/accessibility';
 import { userRoutes } from './routes/users';
 import { healthRoutes } from './routes/health';
 import paymentRoutes from './routes/payment';
+import translateShim from './routes/translateShim';
+import msOauthRoutes from './routes/auth-ms';
 import documentRoutes from './routes/documents';
 import assistantRoutes from './routes/assistant';
 import analyticsRoutes from './routes/analytics';
@@ -109,7 +111,9 @@ app.use('/health', healthRoutes);
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/auth/ms', msOauthRoutes);
 app.use('/api/translation', translationRoutes);
+app.use('/api/translate', translateShim);
 app.use('/api/accessibility', accessibilityRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/payments', paymentRoutes);
@@ -196,7 +200,9 @@ const startServer = async () => {
   }
 };
 
-// Start the server
-startServer();
+// Start the server unless running in test environment
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 export default app;

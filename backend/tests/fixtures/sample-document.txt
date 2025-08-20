@@ -1,0 +1,21 @@
+This is a sample document for testing OCR functionality.
+
+It contains multiple lines of text that should be extracted accurately.
+
+The document includes:
+- Simple text paragraphs
+- Lists and bullet points
+- Various formatting elements
+
+Table Example:
+Header 1    Header 2    Header 3
+Data 1      Data 2      Data 3
+Row 2 A     Row 2 B     Row 2 C
+
+This text should be processed with high confidence levels.
+
+Special characters: àáâãäåæçèéêëìíîïñòóôõöøùúûüý
+Numbers: 1234567890
+Punctuation: !@#$%^&*()
+
+End of sample document.

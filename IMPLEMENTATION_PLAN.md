@@ -72,10 +72,10 @@
    - Add file upload progress indicators
    - Implement real-time processing feedback
 
-3. **Backend Processing**
-   - PDF text extraction with pdf.js
-   - DOCX processing with mammoth
-   - Image OCR with Tesseract
+3. **Backend Processing (stubs exist; wire progressively)**
+   - PDF text extraction with pdf.js (planned)
+   - DOCX processing with mammoth (planned)
+   - Image OCR with Tesseract (planned)
 
 ---
 
@@ -95,9 +95,9 @@
    - Implement streaming responses
 
 2. **AI Model Integration**
-   - Google Gemini API integration
-   - OpenAI API fallback
-   - Local model options
+   - Google Gemini API integration (planned)
+   - OpenAI API fallback (planned)
+   - Local model options (optional)
 
 3. **Multimodal Pipeline**
    - Image analysis integration
@@ -128,7 +128,8 @@
 
 3. **Data Persistence**
    - Redis for real-time data
-   - PostgreSQL for historical data
+   - MongoDB for core data (present)
+   - PostgreSQL for historical data (future option)
    - Data export functionality
 
 ---
@@ -303,7 +304,7 @@ MSAL_TENANT_ID=
 
 ### **System Requirements**
 - **Node.js** 18+ for backend
-- **PostgreSQL** 14+ for database
+- **MongoDB** 7+ for database (present); PostgreSQL optional later
 - **Redis** 6+ for caching
 - **FFmpeg** for media processing
 
@@ -339,25 +340,29 @@ MSAL_TENANT_ID=
 
 ## 🎯 **Next Immediate Actions**
 
-### **Priority 1: Complete Payment Integration**
+### **Priority 1: CI and Tests**
+1. Add `.github/workflows/ci.yml` with install, type-check, build (where applicable), and tests
+2. Add basic endpoint tests for `/api/translation/text`, `/api/ocr/extract`, `/api/documents/upload`
+
+### **Priority 2: Complete Payment Integration**
 1. Create backend API endpoints
 2. Test Stripe checkout flow
 3. Implement webhook handling
 4. Add payment success/failure pages
 
-### **Priority 2: Enhance Document Reader**
+### **Priority 3: Enhance Document Reader**
 1. Integrate document processing service
 2. Add real file processing
 3. Implement progress indicators
 4. Test all file types
 
-### **Priority 3: Integrate Assistant Service**
+### **Priority 4: Integrate Assistant Service**
 1. Update GeminiAssistantPage
 2. Add file attachment UI
 3. Implement streaming responses
 4. Test conversation flow
 
-### **Priority 4: Real-time Analytics**
+### **Priority 5: Real-time Analytics**
 1. Integrate analytics service
 2. Add event tracking to all pages
 3. Implement WebSocket updates

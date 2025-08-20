@@ -1,0 +1,44 @@
+CONTEXT:
+- GitHub repo: https://github.com/omshivarjun/vision-platform.git
+- Local dev URL: http://localhost:5173
+- Primary goals: fix local dev DB setup, add CI workflow, implement a basic translation backend stub, add OCR endpoint stub, and fix major frontend UX issues (remove duplicate toasts, centralize document workflow).
+- Do not change unrelated files. Create a descriptive feature branch and open a draft PR.
+
+
+TASKS (do them in order):
+1) Create a feature branch named: ai/fix-infra-and-core-features
+2) Add a `docker-compose.yml` to run Postgres for local development.
+3) Add a minimal SQL migration under `scripts/01_create_tables.sql` creating tables: users, documents, translations, analytics.
+4) Add an environment example file `.env.example` with a placeholder DATABASE_URL and comments for Azure/Google keys.
+5) Add a GitHub Actions workflow `.github/workflows/ci.yml` that runs `npm ci`, `npm run build` (if present) and `npm test` (if present).
+6) Implement a server helper stub at `server/lib/translate.js` and a REST endpoint `POST /api/translate` that accepts `{text, targetLang}` and returns a JSON payload. The endpoint may call the stub for now.
+7) Implement an OCR endpoint stub `POST /api/ocr` at `server/api/ocr.js` that accepts a file upload and returns `{text: '', blocks: []}`. Use a placeholder function so a human can later wire to Tesseract/Cloud Vision.
+8) Frontend: remove duplicate toast notifications and replace them with a single accessible `aria-live` region. If toasts are created by a library, add a wrapper to deduplicate identical messages within 5 seconds.
+9) Frontend: centralize the document flow — make sure uploading a document creates an entry in `/api/documents` (server stub is OK) and shows a processing progress bar; add a `Download Text` button that fetches `/api/documents/:id/text`.
+10) Add tests (unit/integration) showing the server endpoints respond with 200 and expected JSON structure (use Jest or the project's test framework). Add one CI test that runs in the workflow above.
+
+
+INSTRUCTIONS FOR MODIFICATIONS:
+- Make small, well-named commits (e.g. `feat(infra): add docker-compose and create tables migration`).
+- Each file must include a small header comment describing purpose and next steps for human devs.
+- Where API keys are required, use placeholders and reference `.env.example`.
+- Add clear TODO comments where the AI is adding stubs that require production wiring.
+
+
+EXPECTED DELIVERABLES (for the PR):
+- Branch: `ai/fix-infra-and-core-features`
+- Files added/changed: docker-compose.yml, scripts/01_create_tables.sql, .env.example, .github/workflows/ci.yml, server/lib/translate.js, server/api/translate.js, server/api/ocr.js, frontend changes to toast system and document workflow, tests/
+- PR description (draft) that lists the steps taken and files changed, plus instructions for how to finish production wiring
+- A single test run (mocked) should pass in CI
+
+
+SAFETY & REVIEW NOTES:
+- Do not commit any secrets. If a token is required, add instructions to `.env.example`.
+- Keep production-grade changes minimal — stubs are allowed and flagged with TODO.
+- Add comments that help manual reviewers finish the integration.
+
+
+If anything in the repo prohibits these changes (missing package.json or server folder), stop and report back with a one-paragraph diagnostic listing which files/structure are missing.
+
+
+END OF PROMPT

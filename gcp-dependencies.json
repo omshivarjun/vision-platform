@@ -1,0 +1,29 @@
+{
+  "gcp_dependencies": {
+    "storage": "@google-cloud/storage",
+    "translation": "@google-cloud/translate",
+    "vision": "@google-cloud/vision",
+    "speech": "@google-cloud/speech",
+    "text_to_speech": "@google-cloud/text-to-speech",
+    "auth": "google-auth-library",
+    "common": "@google-cloud/common"
+  },
+  "install_command": "npm install @google-cloud/storage @google-cloud/translate @google-cloud/vision @google-cloud/speech @google-cloud/text-to-speech google-auth-library @google-cloud/common",
+  "version_requirements": {
+    "@google-cloud/storage": "^7.0.0",
+    "@google-cloud/translate": "^8.0.0",
+    "@google-cloud/vision": "^4.0.0",
+    "@google-cloud/speech": "^6.0.0",
+    "@google-cloud/text-to-speech": "^5.0.0",
+    "google-auth-library": "^9.0.0",
+    "@google-cloud/common": "^5.0.0"
+  },
+  "setup_instructions": [
+    "1. Install dependencies: npm install @google-cloud/storage @google-cloud/translate @google-cloud/vision @google-cloud/speech @google-cloud/text-to-speech google-auth-library @google-cloud/common",
+    "2. Set up Google Cloud Project and enable APIs",
+    "3. Create service account and download credentials JSON",
+    "4. Update .env file with GCP configuration",
+    "5. Test GCP services using /api/gcp/status endpoint"
+  ]
+}
+

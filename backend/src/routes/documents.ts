@@ -177,3 +177,17 @@ router.delete('/:documentId', async (req, res) => {
 })
 
 export default router
+
+// Additional endpoint for canonical text download
+// GET /api/documents/:documentId/text
+router.get('/:documentId/text', async (req, res) => {
+  try {
+    const { documentId } = req.params
+    // TODO: Read canonical extracted text from DB/storage. For now, return mock.
+    const mockText = 'Sample document text' // In-memory placeholder; replace with DB lookup
+    return res.type('text/plain').send(mockText)
+  } catch (error) {
+    console.error('Document text retrieval error:', error)
+    return res.status(500).json({ error: 'Text retrieval failed' })
+  }
+})

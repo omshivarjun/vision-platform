@@ -30,23 +30,30 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
 
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
     - name: Install dependencies
       run: |
         npm ci
-        cd apps/web && npm ci
+        cd packages/shared && npm ci
+        cd ../../apps/web && npm ci
         cd ../../backend && npm ci
+        cd ../../services/ai && pip install -r requirements.txt
 
     - name: Run linting
       run: |
         npm run lint
-        cd apps/web && npm run lint
-        cd ../../backend && npm run lint
+        cd backend && npm run lint
+        cd ../services/ai && python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
     - name: Run tests
       run: |
         npm run test
-        cd apps/web && npm run test
-        cd ../../backend && npm run test
+        cd backend && npm run test
+        cd ../services/ai && python -m pytest tests/ -v
 
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
@@ -82,6 +89,12 @@ jobs:
         cd apps/web && npm audit --audit-level=moderate
         cd ../../backend && npm audit --audit-level=moderate
 
+    - name: Run Python security check
+      run: |
+        cd services/ai
+        pip install safety
+        safety check
+
   # Build and test Docker images
   docker-build:
     runs-on: ubuntu-latest
@@ -95,6 +108,9 @@ jobs:
           - name: backend
             dockerfile: backend/Dockerfile
             context: backend
+          - name: ai-service
+            dockerfile: services/ai/Dockerfile
+            context: services/ai
 
     steps:
     - name: Checkout code
@@ -138,18 +154,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: [docker-build]
     services:
-      postgres:
-        image: postgres:15
+      mongodb:
+        image: mongo:7.0
         env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_db
+          MONGO_INITDB_ROOT_USERNAME: admin
+          MONGO_INITDB_ROOT_PASSWORD: password
+          MONGO_INITDB_DATABASE: test_db
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
         ports:
-          - 5432:5432
+          - 27017:27017
 
       redis:
         image: redis:7.2-alpine
@@ -161,6 +178,21 @@ jobs:
         ports:
           - 6379:6379
 
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 9000:9000
+          - 9001:9001
+        args: ["server", "/data", "--console-address", ":9001"]
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -171,10 +203,25 @@ jobs:
         node-version: 18
         cache: 'npm'
 
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
     - name: Install dependencies
       run: |
         npm ci
         cd backend && npm ci
+        cd ../services/ai && pip install -r requirements.txt
+
+    - name: Wait for services to be ready
+      run: |
+        echo "Waiting for MongoDB..."
+        timeout 60 bash -c 'until mongosh --host localhost:27017 --username admin --password password --authenticationDatabase admin --eval "db.adminCommand(\"ping\")" > /dev/null 2>&1; do sleep 2; done'
+        echo "Waiting for Redis..."
+        timeout 60 bash -c 'until redis-cli -h localhost -p 6379 ping > /dev/null 2>&1; do sleep 2; done'
+        echo "Waiting for MinIO..."
+        timeout 60 bash -c 'until curl -f http://localhost:9000/minio/health/live > /dev/null 2>&1; do sleep 2; done'
 
     - name: Run integration tests
       run: |
@@ -182,15 +229,19 @@ jobs:
         npm run test:integration
       env:
         NODE_ENV: test
-        POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        MONGODB_URI: mongodb://admin:password@localhost:27017/test_db?authSource=admin
         REDIS_URL: redis://localhost:6379
+        MINIO_ENDPOINT: localhost:9000
+        MINIO_ACCESS_KEY: minioadmin
+        MINIO_SECRET_KEY: minioadmin
 
   # Deploy to staging
   deploy-staging:
     runs-on: ubuntu-latest
     needs: [integration-tests]
     if: github.ref == 'refs/heads/develop'
-    environment: staging
+    environment: 
+      name: staging
     
     steps:
     - name: Checkout code
@@ -224,7 +275,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [integration-tests]
     if: github.ref == 'refs/heads/main'
-    environment: production
+    environment: 
+      name: production
     
     steps:
     - name: Checkout code

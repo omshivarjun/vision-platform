@@ -2,13 +2,18 @@
   "name": "vision-platform-backend",
   "version": "1.0.0",
   "description": "Backend API server for the Vision Platform",
-  "main": "server.js",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
     "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:integration": "jest --testPathPattern=integration --forceExit",
+    "test:watch": "jest --watch",
     "lint": "eslint .",
-    "build": "echo 'Backend is ready to run'"
+    "lint:fix": "eslint . --fix",
+    "build": "echo 'Backend is ready to run'",
+    "type-check": "echo 'TypeScript checking not configured for backend'"
   },
   "keywords": [
     "vision-platform",

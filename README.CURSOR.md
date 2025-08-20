@@ -2,7 +2,7 @@
 
 ## 🚀 Welcome Cursor!
 
-**CRITICAL CONTEXT**: The Vision Platform is already working and all critical errors have been fixed. You are here to enhance and extend functionality, not fix broken code.
+**CRITICAL CONTEXT**: The Vision Platform runs on MongoDB/Redis/MinIO and includes several backend stubs (e.g., translation, OCR, documents). CI is not yet configured. Enhance and extend functionality (wire stubs, add CI, improve UX), not rebuild.
 
 ## 🏗️ Platform Architecture Overview
 
@@ -26,7 +26,7 @@ The Vision Platform is a modern, enterprise-grade application built with:
 ### Cursor Rule #2: Development Workflow Optimization
 - Optimize for developer productivity and experience
 - Implement proper error handling and debugging
-- Consider hot reloading and development tools
+- Consider hot reloading and development tools (Vite/Next dev already in use)
 - Use modern development practices and patterns
 
 ### Cursor Rule #3: Code Quality & Maintainability

@@ -181,3 +181,4 @@ Your Vision Platform environment is now **perfectly organized and ready for deve
 ---
 
 *Last updated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')*
+

@@ -1,208 +1,431 @@
-// Extend Window interface for analytics event emitter
-declare global {
-  interface Window {
-    analyticsEventEmitter?: {
-      emit: (event: string, data: any) => void
-    }
-  }
-}
+import { toastSuccess, toastError } from '../utils/toast'
 
-// Real-time analytics service for tracking user events and metrics
+// Types for analytics data
 export interface AnalyticsEvent {
   id: string
   type: string
   userId?: string
-  anonymousId?: string
-  timestamp: number
-  properties: Record<string, any>
   sessionId?: string
-  pageUrl?: string
-  userAgent?: string
-}
-
-export interface AnalyticsMetric {
-  name: string
-  value: number
-  timestamp: number
-  tags: Record<string, string>
+  timestamp: string
+  properties: Record<string, any>
+  metadata?: {
+    userAgent: string
+    ip?: string
+    referrer?: string
+  }
 }
 
 export interface RealTimeData {
   activeUsers: number
   eventsPerMinute: number
-  topEvents: Array<{ type: string; count: number }>
-  recentActivity: AnalyticsEvent[]
   systemMetrics: {
     cpu: number
     memory: number
     responseTime: number
-    errorRate: number
+  }
+  topEvents: Array<{
+    type: string
+    count: number
+  }>
+  recentActivity: AnalyticsEvent[]
+}
+
+export interface HistoricalMetric {
+  timestamp: string
+  value: number
+  metadata?: Record<string, any>
+}
+
+export interface UserAnalytics {
+  totalSessions: number
+  avgSessionDuration: number
+  featureUsage: Record<string, number>
+  lastActive: string
+  preferences: Record<string, any>
+}
+
+export interface AnalyticsSummary {
+  totalEvents: number
+  uniqueUsers: number
+  topFeatures: Array<{
+    name: string
+    count: number
+    percentage: number
+  }>
+  timeRange: string
+  lastUpdated: string
+}
+
+// Analytics Service Configuration
+const ANALYTICS_CONFIG = {
+  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api',
+  batchSize: 10,
+  flushInterval: 5000, // 5 seconds
+  maxRetries: 3,
+  enableOfflineMode: true,
+  enableDebugMode: import.meta.env.DEV
+}
+
+// Event queue for batching
+let eventQueue: AnalyticsEvent[] = []
+let flushTimer: NodeJS.Timeout | null = null
+
+// Generate unique IDs
+const generateId = () => `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+// Get or create session ID
+const getSessionId = (): string => {
+  let sessionId = localStorage.getItem('analytics_session_id')
+  if (!sessionId) {
+    sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    localStorage.setItem('analytics_session_id', sessionId)
+  }
+  return sessionId
+}
+
+// Get user ID from storage or auth context
+const getUserId = (): string | undefined => {
+  return localStorage.getItem('userId') || undefined
+}
+
+// Flush events to the server
+const flushEvents = async () => {
+  if (eventQueue.length === 0) return
+
+  const eventsToSend = [...eventQueue]
+  eventQueue = []
+
+  try {
+    const response = await fetch(`${ANALYTICS_CONFIG.apiBaseUrl}/analytics/events/batch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+      },
+      body: JSON.stringify({ events: eventsToSend })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    if (ANALYTICS_CONFIG.enableDebugMode) {
+      console.log(`✅ Analytics: Flushed ${eventsToSend.length} events`)
+    }
+    
+    // Clear the timer since we've successfully flushed
+    if (flushTimer) {
+      clearTimeout(flushTimer)
+      flushTimer = null
+    }
+  } catch (error) {
+    console.error('❌ Analytics: Failed to flush events:', error)
+    
+    // Re-queue events for retry (with limit)
+    if (eventQueue.length < ANALYTICS_CONFIG.batchSize * 2) {
+      eventQueue.unshift(...eventsToSend)
+    }
   }
 }
 
-// Analytics service
+// Schedule event flushing
+const scheduleFlush = () => {
+  if (flushTimer) {
+    clearTimeout(flushTimer)
+  }
+  flushTimer = setTimeout(flushEvents, ANALYTICS_CONFIG.flushInterval)
+}
+
+// Enhanced Analytics Service
 export const analyticsService = {
-  // Track user event
-  async trackEvent(eventType: string, properties: Record<string, any> = {}) {
+  /**
+   * Track a custom analytics event
+   */
+  trackEvent(
+    eventType: string, 
+    properties: Record<string, any> = {}, 
+    userId?: string,
+    sessionId?: string
+  ) {
     const event: AnalyticsEvent = {
-      id: this.generateEventId(),
+      id: generateId(),
       type: eventType,
-      userId: this.getUserId(),
-      anonymousId: this.getAnonymousId(),
-      timestamp: Date.now(),
+      userId: userId || getUserId(),
+      sessionId: sessionId || getSessionId(),
+      timestamp: new Date().toISOString(),
       properties,
-      sessionId: this.getSessionId(),
-      pageUrl: window.location.href,
-      userAgent: navigator.userAgent,
+      metadata: {
+        userAgent: navigator.userAgent,
+        referrer: document.referrer || undefined
+      }
     }
 
-    try {
-      // Send to backend
-      await this.sendEvent(event)
-      
-      // Store locally for offline sync
-      this.storeEventLocally(event)
-      
-      // Emit to real-time listeners
-      this.emitEvent(event)
-      
-      console.log('Event tracked:', event)
-    } catch (error) {
-      console.error('Failed to track event:', error)
-      // Queue for retry
-      this.queueEventForRetry(event)
+    // Add to queue
+    eventQueue.push(event)
+    
+    // Schedule flush if not already scheduled
+    if (eventQueue.length >= ANALYTICS_CONFIG.batchSize) {
+      flushEvents()
+    } else {
+      scheduleFlush()
     }
+
+    if (ANALYTICS_CONFIG.enableDebugMode) {
+      console.log('📊 Analytics Event:', event)
+    }
+
+    return event.id
   },
 
-  // Track page view
+  /**
+   * Track page view
+   */
   trackPageView(pageName: string, properties: Record<string, any> = {}) {
-    this.trackEvent('page_view', {
+    return this.trackEvent('page_view', {
       page_name: pageName,
       page_url: window.location.href,
-      referrer: document.referrer,
-      ...properties,
+      page_title: document.title,
+      ...properties
     })
   },
 
-  // Track user action
+  /**
+   * Track user action
+   */
   trackUserAction(action: string, properties: Record<string, any> = {}) {
-    this.trackEvent('user_action', {
+    return this.trackEvent('user_action', {
       action,
-      ...properties,
+      ...properties
     })
   },
 
-  // Track translation
-  trackTranslation(sourceLanguage: string, targetLanguage: string, properties: Record<string, any> = {}) {
-    this.trackEvent('translation', {
-      source_language: sourceLanguage,
-      target_language: targetLanguage,
-      ...properties,
+  /**
+   * Track feature usage
+   */
+  trackFeatureUsage(feature: string, properties: Record<string, any> = {}) {
+    return this.trackEvent('feature_usage', {
+      feature,
+      ...properties
     })
   },
 
-  // Track payment
-  trackPayment(amount: number, currency: string, plan: string, properties: Record<string, any> = {}) {
-    this.trackEvent('payment', {
-      amount,
-      currency,
-      plan,
-      ...properties,
-    })
-  },
-
-  // Track document processing
-  trackDocumentProcessing(fileType: string, fileSize: number, processingTime: number, properties: Record<string, any> = {}) {
-    this.trackEvent('document_processing', {
-      file_type: fileType,
-      file_size: fileSize,
-      processing_time: processingTime,
-      ...properties,
-    })
-  },
-
-  // Track AI assistant usage
-  trackAIAssistantUsage(queryType: string, responseTime: number, properties: Record<string, any> = {}) {
-    this.trackEvent('ai_assistant_usage', {
-      query_type: queryType,
-      response_time: responseTime,
-      ...properties,
-    })
-  },
-
-  // Track error
-  trackError(error: Error, context: Record<string, any> = {}) {
-    this.trackEvent('error', {
+  /**
+   * Track error
+   */
+  trackError(errorType: string, error: Error, properties: Record<string, any> = {}) {
+    return this.trackEvent('error', {
+      error_type: errorType,
       error_message: error.message,
       error_stack: error.stack,
-      error_name: error.name,
-      ...context,
+      ...properties
     })
   },
 
-  // Get real-time data
+  /**
+   * Track conversion/funnel step
+   */
+  trackConversion(funnelStep: string, value?: number, properties: Record<string, any> = {}) {
+    return this.trackEvent('conversion', {
+      funnel_step: funnelStep,
+      value,
+      ...properties
+    })
+  },
+
+  /**
+   * Get real-time analytics data
+   */
   async getRealTimeData(): Promise<RealTimeData> {
     try {
-      const response = await fetch('/api/analytics/realtime')
-      
+      const response = await fetch(`${ANALYTICS_CONFIG.apiBaseUrl}/analytics/realtime`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      })
+
       if (!response.ok) {
-        throw new Error('Failed to fetch real-time data')
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
-      return await response.json()
+      const data = await response.json()
+      return data
     } catch (error) {
       console.error('Failed to fetch real-time data:', error)
       
       // Return mock data for development
-      return this.getMockRealTimeData()
+      if (ANALYTICS_CONFIG.enableDebugMode) {
+        return {
+          activeUsers: Math.floor(Math.random() * 100) + 50,
+          eventsPerMinute: Math.floor(Math.random() * 20) + 10,
+          systemMetrics: {
+            cpu: Math.random() * 30 + 20,
+            memory: Math.random() * 40 + 30,
+            responseTime: Math.random() * 50 + 20
+          },
+          topEvents: [
+            { type: 'page_view', count: Math.floor(Math.random() * 100) + 50 },
+            { type: 'translation', count: Math.floor(Math.random() * 80) + 30 },
+            { type: 'document_processing', count: Math.floor(Math.random() * 60) + 20 },
+            { type: 'ai_assistant_usage', count: Math.floor(Math.random() * 40) + 15 }
+          ],
+          recentActivity: []
+        }
+      }
+      
+      throw error
     }
   },
 
-  // Get historical metrics
-  async getHistoricalMetrics(metric: string, timeRange: string, interval: string) {
+  /**
+   * Get historical metrics
+   */
+  async getHistoricalMetrics(
+    metric: string, 
+    timeRange: string, 
+    interval: string
+  ): Promise<HistoricalMetric[]> {
     try {
-      const response = await fetch(`/api/analytics/metrics/${metric}?range=${timeRange}&interval=${interval}`)
-      
+      const response = await fetch(
+        `${ANALYTICS_CONFIG.apiBaseUrl}/analytics/metrics?metric=${metric}&timeRange=${timeRange}&interval=${interval}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          }
+        }
+      )
+
       if (!response.ok) {
-        throw new Error('Failed to fetch historical metrics')
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
-      return await response.json()
+      const data = await response.json()
+      return data
     } catch (error) {
       console.error('Failed to fetch historical metrics:', error)
-      return []
+      
+      // Return mock data for development
+      if (ANALYTICS_CONFIG.enableDebugMode) {
+        const now = new Date()
+        const mockData: HistoricalMetric[] = []
+        
+        for (let i = 23; i >= 0; i--) {
+          const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000)
+          mockData.push({
+            timestamp: timestamp.toISOString(),
+            value: Math.floor(Math.random() * 100) + 20
+          })
+        }
+        
+        return mockData
+      }
+      
+      throw error
     }
   },
 
-  // Get user analytics
-  async getUserAnalytics(userId: string, timeRange: string = '30d') {
+  /**
+   * Get user analytics
+   */
+  async getUserAnalytics(userId: string, timeRange: string): Promise<UserAnalytics> {
     try {
-      const response = await fetch(`/api/analytics/users/${userId}?range=${timeRange}`)
-      
+      const response = await fetch(
+        `${ANALYTICS_CONFIG.apiBaseUrl}/analytics/user/${userId}?timeRange=${timeRange}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          }
+        }
+      )
+
       if (!response.ok) {
-        throw new Error('Failed to fetch user analytics')
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
-      return await response.json()
+      const data = await response.json()
+      return data
     } catch (error) {
       console.error('Failed to fetch user analytics:', error)
-      return null
+      
+      // Return mock data for development
+      if (ANALYTICS_CONFIG.enableDebugMode) {
+        return {
+          totalSessions: Math.floor(Math.random() * 20) + 5,
+          avgSessionDuration: Math.floor(Math.random() * 30) + 10,
+          featureUsage: {
+            translation: Math.floor(Math.random() * 50) + 20,
+            document_processing: Math.floor(Math.random() * 30) + 10,
+            ai_assistant: Math.floor(Math.random() * 20) + 5
+          },
+          lastActive: new Date().toISOString(),
+          preferences: {
+            language: 'en',
+            theme: 'light'
+          }
+        }
+      }
+      
+      throw error
     }
   },
 
-  // Export analytics data
-  async exportAnalytics(timeRange: string, format: 'csv' | 'json' = 'csv') {
+  /**
+   * Get analytics summary
+   */
+  async getAnalyticsSummary(timeRange: string): Promise<AnalyticsSummary> {
     try {
-      const response = await fetch('/api/analytics/export', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ timeRange, format }),
-      })
-      
+      const response = await fetch(
+        `${ANALYTICS_CONFIG.apiBaseUrl}/analytics/summary?timeRange=${timeRange}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          }
+        }
+      )
+
       if (!response.ok) {
-        throw new Error('Failed to export analytics')
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error('Failed to fetch analytics summary:', error)
+      
+      // Return mock data for development
+      if (ANALYTICS_CONFIG.enableDebugMode) {
+        return {
+          totalEvents: Math.floor(Math.random() * 10000) + 5000,
+          uniqueUsers: Math.floor(Math.random() * 500) + 200,
+          topFeatures: [
+            { name: 'Translation', count: Math.floor(Math.random() * 5000) + 2000, percentage: 45 },
+            { name: 'Document Processing', count: Math.floor(Math.random() * 3000) + 1500, percentage: 30 },
+            { name: 'AI Assistant', count: Math.floor(Math.random() * 2000) + 1000, percentage: 25 }
+          ],
+          timeRange,
+          lastUpdated: new Date().toISOString()
+        }
+      }
+      
+      throw error
+    }
+  },
+
+  /**
+   * Export analytics data
+   */
+  async exportAnalytics(timeRange: string, format: 'csv' | 'json'): Promise<void> {
+    try {
+      const response = await fetch(
+        `${ANALYTICS_CONFIG.apiBaseUrl}/analytics/export?timeRange=${timeRange}&format=${format}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          }
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
       if (format === 'csv') {
@@ -210,235 +433,83 @@ export const analyticsService = {
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `analytics-${timeRange}.csv`
+        a.download = `analytics_${timeRange}_${new Date().toISOString().split('T')[0]}.csv`
         a.click()
         window.URL.revokeObjectURL(url)
       } else {
-        return await response.json()
+        const data = await response.json()
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `analytics_${timeRange}_${new Date().toISOString().split('T')[0]}.json`
+        a.click()
+        window.URL.revokeObjectURL(url)
       }
+
+      toastSuccess(`Analytics data exported as ${format.toUpperCase()}`)
     } catch (error) {
       console.error('Failed to export analytics:', error)
+      toastError('Failed to export analytics data')
       throw error
     }
   },
 
-  // Helper methods
-  generateEventId(): string {
-    return `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  /**
+   * Flush pending events immediately
+   */
+  async flushEvents(): Promise<void> {
+    await flushEvents()
   },
 
-  getUserId(): string | undefined {
-    // Get from auth context or localStorage
-    return localStorage.getItem('userId') || undefined
-  },
-
-  getAnonymousId(): string {
-    let anonymousId = localStorage.getItem('anonymousId')
-    if (!anonymousId) {
-      anonymousId = `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      localStorage.setItem('anonymousId', anonymousId)
-    }
-    return anonymousId
-  },
-
-  getSessionId(): string {
-    let sessionId = sessionStorage.getItem('sessionId')
-    if (!sessionId) {
-      sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      sessionStorage.setItem('sessionId', sessionId)
-    }
-    return sessionId
-  },
-
-  async sendEvent(event: AnalyticsEvent): Promise<void> {
-    const response = await fetch('/api/analytics/events', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(event),
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to send analytics event')
-    }
-  },
-
-  storeEventLocally(event: AnalyticsEvent): void {
-    try {
-      const events = JSON.parse(localStorage.getItem('analytics_events') || '[]')
-      events.push(event)
-      
-      // Keep only last 100 events
-      if (events.length > 100) {
-        events.splice(0, events.length - 100)
-      }
-      
-      localStorage.setItem('analytics_events', JSON.stringify(events))
-    } catch (error) {
-      console.error('Failed to store event locally:', error)
-    }
-  },
-
-  emitEvent(event: AnalyticsEvent): void {
-    // Emit to WebSocket or EventSource listeners
-    if (window.analyticsEventEmitter) {
-      window.analyticsEventEmitter.emit('event', event)
-    }
-  },
-
-  queueEventForRetry(event: AnalyticsEvent): void {
-    try {
-      const retryQueue = JSON.parse(localStorage.getItem('analytics_retry_queue') || '[]')
-      retryQueue.push(event)
-      localStorage.setItem('analytics_retry_queue', JSON.stringify(retryQueue))
-    } catch (error) {
-      console.error('Failed to queue event for retry:', error)
-    }
-  },
-
-  getMockRealTimeData(): RealTimeData {
+  /**
+   * Get service status
+   */
+  getStatus() {
     return {
-      activeUsers: Math.floor(Math.random() * 100) + 50,
-      eventsPerMinute: Math.floor(Math.random() * 20) + 5,
-      topEvents: [
-        { type: 'page_view', count: Math.floor(Math.random() * 100) + 50 },
-        { type: 'translation', count: Math.floor(Math.random() * 50) + 20 },
-        { type: 'document_processing', count: Math.floor(Math.random() * 30) + 10 },
-        { type: 'ai_assistant_usage', count: Math.floor(Math.random() * 40) + 15 },
-      ],
-      recentActivity: [
-        {
-          id: 'evt_1',
-          type: 'page_view',
-          timestamp: Date.now() - 30000,
-          properties: { page_name: 'Translation Page' },
-        } as AnalyticsEvent,
-        {
-          id: 'evt_2',
-          type: 'translation',
-          timestamp: Date.now() - 60000,
-          properties: { source_language: 'en', target_language: 'es' },
-        } as AnalyticsEvent,
-      ],
-      systemMetrics: {
-        cpu: Math.random() * 30 + 20,
-        memory: Math.random() * 20 + 60,
-        responseTime: Math.random() * 100 + 50,
-        errorRate: Math.random() * 2,
-      },
+      queueSize: eventQueue.length,
+      isOnline: navigator.onLine,
+      config: ANALYTICS_CONFIG,
+      sessionId: getSessionId(),
+      userId: getUserId()
     }
   },
-}
 
-// WebSocket connection for real-time updates
-export class AnalyticsWebSocket {
-  private ws: WebSocket | null = null
-  private reconnectAttempts = 0
-  private maxReconnectAttempts = 5
-  private reconnectDelay = 1000
-
-  constructor(private url: string, private onMessage?: (data: any) => void) {}
-
-  connect() {
-    try {
-      this.ws = new WebSocket(this.url)
-      
-      this.ws.onopen = () => {
-        console.log('Analytics WebSocket connected')
-        this.reconnectAttempts = 0
-      }
-      
-      this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          if (this.onMessage) {
-            this.onMessage(data)
-          }
-        } catch (error) {
-          console.error('Failed to parse WebSocket message:', error)
-        }
-      }
-      
-      this.ws.onclose = () => {
-        console.log('Analytics WebSocket disconnected')
-        this.attemptReconnect()
-      }
-      
-      this.ws.onerror = (error) => {
-        console.error('Analytics WebSocket error:', error)
-      }
-    } catch (error) {
-      console.error('Failed to create WebSocket connection:', error)
-    }
-  }
-
-  private attemptReconnect() {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++
-      console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`)
-      
-      setTimeout(() => {
-        this.connect()
-      }, this.reconnectDelay * this.reconnectAttempts)
-    } else {
-      console.error('Max reconnection attempts reached')
-    }
-  }
-
-  disconnect() {
-    if (this.ws) {
-      this.ws.close()
-      this.ws = null
-    }
-  }
-
-  send(data: any) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data))
+  /**
+   * Clear event queue (for testing)
+   */
+  clearQueue() {
+    eventQueue = []
+    if (flushTimer) {
+      clearTimeout(flushTimer)
+      flushTimer = null
     }
   }
 }
 
-// Event emitter for real-time updates
-export class AnalyticsEventEmitter {
-  private listeners: Map<string, Set<Function>> = new Map()
+// Legacy compatibility
+export const track = analyticsService.trackEvent
 
-  on(event: string, callback: Function) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set())
-    }
-    this.listeners.get(event)!.add(callback)
-  }
 
-  off(event: string, callback: Function) {
-    if (this.listeners.has(event)) {
-      this.listeners.get(event)!.delete(callback)
-    }
-  }
 
-  emit(event: string, data: any) {
-    if (this.listeners.has(event)) {
-      this.listeners.get(event)!.forEach(callback => {
-        try {
-          callback(data)
-        } catch (error) {
-          console.error('Error in event listener:', error)
-        }
-      })
-    }
-  }
+// Export for use in other modules
+export default analyticsService
 
-  removeAllListeners(event?: string) {
-    if (event) {
-      this.listeners.delete(event)
-    } else {
-      this.listeners.clear()
-    }
-  }
-}
-
-// Initialize global event emitter
+// Browser-specific event listeners (only run in browser environment)
 if (typeof window !== 'undefined') {
-  (window as any).analyticsEventEmitter = new AnalyticsEventEmitter()
+  // Auto-flush on page unload
+  window.addEventListener('beforeunload', () => {
+    if (eventQueue.length > 0) {
+      // Use sendBeacon for reliable delivery on page unload
+      const data = JSON.stringify({ events: eventQueue })
+      navigator.sendBeacon(`${ANALYTICS_CONFIG.apiBaseUrl}/analytics/events/batch`, data)
+    }
+  })
+
+  // Handle online/offline status
+  window.addEventListener('online', () => {
+    if (eventQueue.length > 0) {
+      flushEvents()
+    }
+  })
 }

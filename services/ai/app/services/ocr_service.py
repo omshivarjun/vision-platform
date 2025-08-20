@@ -5,277 +5,427 @@ OCR service for AI Service
 import asyncio
 import logging
 import io
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 import time
 from PIL import Image
 import numpy as np
+from pathlib import Path
+import tempfile
+import os
 
-# Optional imports for different OCR providers
-try:
-    import easyocr
-    EASYOCR_AVAILABLE = True
-except ImportError:
-    EASYOCR_AVAILABLE = False
-
+# OCR Libraries
 try:
     import pytesseract
+    from PIL import Image
     TESSERACT_AVAILABLE = True
 except ImportError:
     TESSERACT_AVAILABLE = False
 
 try:
-    from paddleocr import PaddleOCR
-    PADDLEOCR_AVAILABLE = True
+    import pdf2image
+    PDF2IMAGE_AVAILABLE = True
 except ImportError:
-    PADDLEOCR_AVAILABLE = False
+    PDF2IMAGE_AVAILABLE = False
+
+try:
+    import fitz  # PyMuPDF
+    PYMUPDF_AVAILABLE = True
+except ImportError:
+    PYMUPDF_AVAILABLE = False
+
+# Cloud OCR providers
+try:
+    from google.cloud import vision
+    GOOGLE_VISION_AVAILABLE = True
+except ImportError:
+    GOOGLE_VISION_AVAILABLE = False
+
+try:
+    import azure.cognitiveservices.vision.computervision as ComputerVision
+    from azure.cognitiveservices.vision.computervision.models import OperationStatusCodes
+    AZURE_VISION_AVAILABLE = True
+except ImportError:
+    AZURE_VISION_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
 class OCRService:
-    """OCR service with multiple provider support"""
+    """OCR Service for text extraction from images and PDFs"""
     
     def __init__(self):
-        self.easyocr_reader = None
-        self.paddle_ocr = None
-        self._initialize_ocr_engines()
-    
-    def _initialize_ocr_engines(self):
-        """Initialize OCR engines"""
-        try:
-            # Initialize EasyOCR
-            if EASYOCR_AVAILABLE:
-                self.easyocr_reader = easyocr.Reader(['en', 'es', 'fr', 'de', 'it', 'pt'])
-                logger.info("EasyOCR initialized")
-            
-            # Initialize PaddleOCR
-            if PADDLEOCR_AVAILABLE:
-                self.paddle_ocr = PaddleOCR(use_angle_cls=True, lang='en')
-                logger.info("PaddleOCR initialized")
-                
-        except Exception as e:
-            logger.error(f"Failed to initialize OCR engines: {e}")
+        self.default_provider = os.getenv('DEFAULT_OCR_PROVIDER', 'tesseract')
+        self.cache_ttl = int(os.getenv('OCR_CACHE_TTL', 7200))
+        self.max_file_size = int(os.getenv('MAX_FILE_SIZE', 52428800))  # 50MB
+        self.supported_formats = os.getenv('SUPPORTED_FORMATS', 'pdf,jpg,jpeg,png,tiff').split(',')
+        
+        # Initialize providers
+        self.providers = {
+            'tesseract': self._tesseract_ocr if TESSERACT_AVAILABLE else None,
+            'google': self._google_vision_ocr if GOOGLE_VISION_AVAILABLE else None,
+            'azure': self._azure_vision_ocr if AZURE_VISION_AVAILABLE else None
+        }
+        
+        # Check provider availability
+        self.available_providers = [name for name, func in self.providers.items() if func is not None]
+        
+        if not self.available_providers:
+            raise RuntimeError("No OCR providers available. Please install required dependencies.")
+        
+        logger.info(f"OCR Service initialized with providers: {self.available_providers}")
     
     async def extract_text(
-        self,
-        image_data: bytes,
-        language: str = "en",
-        model: str = "easyocr"
-    ) -> Dict[str, Any]:
-        """Extract text from image using OCR"""
-        start_time = time.time()
+        self, 
+        file_path: Union[str, Path], 
+        provider: Optional[str] = None,
+        options: Optional[Dict] = None
+    ) -> Dict:
+        """
+        Extract text from image or PDF file
         
+        Args:
+            file_path: Path to the file
+            provider: OCR provider to use (tesseract, google, azure)
+            options: Additional options for the provider
+            
+        Returns:
+            Dictionary containing extracted text and metadata
+        """
         try:
-            # Convert bytes to PIL Image
-            image = Image.open(io.BytesIO(image_data))
+            file_path = Path(file_path)
             
-            # Convert to numpy array for OCR processing
-            image_array = np.array(image)
+            # Validate file
+            if not file_path.exists():
+                raise FileNotFoundError(f"File not found: {file_path}")
             
-            # Choose OCR engine
-            if model == "paddle" and self.paddle_ocr:
-                result = await self._paddle_ocr_extract(image_array, language)
-            elif model == "tesseract" and TESSERACT_AVAILABLE:
-                result = await self._tesseract_extract(image_array, language)
-            elif self.easyocr_reader:
-                result = await self._easyocr_extract(image_array, language)
+            # Check file size
+            file_size = file_path.stat().st_size
+            if file_size > self.max_file_size:
+                raise ValueError(f"File too large: {file_size} bytes. Maximum: {self.max_file_size} bytes")
+            
+            # Check file format
+            file_extension = file_path.suffix.lower().lstrip('.')
+            if file_extension not in self.supported_formats:
+                raise ValueError(f"Unsupported file format: {file_extension}")
+            
+            # Determine provider
+            selected_provider = provider or self.default_provider
+            if selected_provider not in self.available_providers:
+                logger.warning(f"Provider {selected_provider} not available, using {self.available_providers[0]}")
+                selected_provider = self.available_providers[0]
+            
+            logger.info(f"Processing file {file_path} with {selected_provider} provider")
+            
+            # Process file based on type
+            if file_extension == 'pdf':
+                result = await self._process_pdf(file_path, selected_provider, options)
             else:
-                # Fallback mock OCR
-                result = await self._mock_ocr_extract(image_array, language)
+                result = await self._process_image(file_path, selected_provider, options)
             
-            result["processing_time"] = (time.time() - start_time) * 1000
-            
-            logger.info(f"OCR extraction completed", {
-                "language": language,
-                "model": model,
-                "text_length": len(result.get("text", "")),
-                "confidence": result.get("confidence"),
-                "processing_time": result["processing_time"]
+            # Add metadata
+            result.update({
+                'file_path': str(file_path),
+                'file_size': file_size,
+                'file_format': file_extension,
+                'provider': selected_provider,
+                'processing_time': result.get('processing_time', 0)
             })
             
             return result
             
         except Exception as e:
-            logger.error(f"OCR extraction failed: {e}")
+            logger.error(f"OCR processing failed: {str(e)}")
             raise
     
-    async def _easyocr_extract(self, image_array: np.ndarray, language: str) -> Dict[str, Any]:
-        """Extract text using EasyOCR"""
+    async def _process_pdf(self, file_path: Path, provider: str, options: Optional[Dict]) -> Dict:
+        """Process PDF file and extract text"""
+        start_time = asyncio.get_event_loop().time()
+        
         try:
-            results = self.easyocr_reader.readtext(image_array)
+            # Convert PDF to images
+            images = await self._pdf_to_images(file_path)
             
-            text_blocks = []
-            full_text = ""
-            total_confidence = 0
+            all_text = []
+            all_blocks = []
+            page_results = []
             
-            for bbox, text, confidence in results:
-                text_blocks.append({
-                    "text": text,
-                    "confidence": float(confidence),
-                    "bbox": bbox
-                })
-                full_text += text + " "
-                total_confidence += confidence
+            for page_num, image in enumerate(images):
+                logger.info(f"Processing PDF page {page_num + 1}")
+                
+                # Save image to temporary file
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
+                    image.save(temp_file.name, 'PNG')
+                    temp_path = temp_file.name
+                
+                try:
+                    # Process image
+                    page_result = await self._process_image(temp_path, provider, options)
+                    
+                    # Add page information
+                    page_result['page_number'] = page_num + 1
+                    page_results.append(page_result)
+                    
+                    all_text.append(page_result.get('text', ''))
+                    all_blocks.extend(page_result.get('blocks', []))
+                    
+                finally:
+                    # Clean up temporary file
+                    os.unlink(temp_path)
             
-            avg_confidence = total_confidence / len(results) if results else 0
+            processing_time = asyncio.get_event_loop().time() - start_time
             
             return {
-                "text": full_text.strip(),
-                "confidence": float(avg_confidence),
-                "blocks": text_blocks,
-                "language": language,
-                "model": "easyocr"
+                'text': '\n\n--- Page Break ---\n\n'.join(all_text),
+                'blocks': all_blocks,
+                'pages': page_results,
+                'total_pages': len(images),
+                'processing_time': processing_time
             }
             
         except Exception as e:
-            logger.error(f"EasyOCR extraction failed: {e}")
+            logger.error(f"PDF processing failed: {str(e)}")
             raise
     
-    async def _paddle_ocr_extract(self, image_array: np.ndarray, language: str) -> Dict[str, Any]:
-        """Extract text using PaddleOCR"""
+    async def _pdf_to_images(self, file_path: Path) -> List[Image.Image]:
+        """Convert PDF to list of PIL Images"""
         try:
-            results = self.paddle_ocr.ocr(image_array, cls=True)
+            if PDF2IMAGE_AVAILABLE:
+                # Use pdf2image (better quality)
+                images = pdf2image.convert_from_path(file_path, dpi=300)
+                return images
+            elif PYMUPDF_AVAILABLE:
+                # Use PyMuPDF as fallback
+                doc = fitz.open(file_path)
+                images = []
+                for page in doc:
+                    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better quality
+                    img_data = pix.tobytes("png")
+                    img = Image.open(io.BytesIO(img_data))
+                    images.append(img)
+                doc.close()
+                return images
+            else:
+                raise RuntimeError("No PDF processing library available")
+        except Exception as e:
+            logger.error(f"PDF to image conversion failed: {str(e)}")
+            raise
+    
+    async def _process_image(self, file_path: Union[str, Path], provider: str, options: Optional[Dict]) -> Dict:
+        """Process image file and extract text"""
+        start_time = asyncio.get_event_loop().time()
+        
+        try:
+            # Get the OCR function for the provider
+            ocr_func = self.providers[provider]
+            if not ocr_func:
+                raise ValueError(f"Provider {provider} not available")
             
-            text_blocks = []
-            full_text = ""
-            total_confidence = 0
-            count = 0
+            # Run OCR
+            if asyncio.iscoroutinefunction(ocr_func):
+                result = await ocr_func(file_path, options)
+            else:
+                # Run synchronous function in thread pool
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(None, ocr_func, file_path, options)
             
-            for line in results:
-                if line:
-                    for word_info in line:
-                        bbox, (text, confidence) = word_info
-                        text_blocks.append({
-                            "text": text,
-                            "confidence": float(confidence),
-                            "bbox": bbox
-                        })
-                        full_text += text + " "
-                        total_confidence += confidence
-                        count += 1
+            processing_time = asyncio.get_event_loop().time() - start_time
+            result['processing_time'] = processing_time
             
-            avg_confidence = total_confidence / count if count > 0 else 0
-            
-            return {
-                "text": full_text.strip(),
-                "confidence": float(avg_confidence),
-                "blocks": text_blocks,
-                "language": language,
-                "model": "paddleocr"
-            }
+            return result
             
         except Exception as e:
-            logger.error(f"PaddleOCR extraction failed: {e}")
+            logger.error(f"Image processing failed: {str(e)}")
             raise
     
-    async def _tesseract_extract(self, image_array: np.ndarray, language: str) -> Dict[str, Any]:
-        """Extract text using Tesseract"""
+    def _tesseract_ocr(self, file_path: Union[str, Path], options: Optional[Dict]) -> Dict:
+        """Extract text using Tesseract OCR"""
         try:
-            # Convert numpy array to PIL Image
-            image = Image.fromarray(image_array)
+            # Configure Tesseract
+            config = '--oem 3 --psm 6'  # Default OCR Engine Mode and Page Segmentation Mode
+            if options and 'tesseract_config' in options:
+                config = options['tesseract_config']
             
             # Extract text
-            text = pytesseract.image_to_string(image, lang=language)
+            text = pytesseract.image_to_string(file_path, config=config)
             
-            # Get confidence data
-            data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
-            confidences = [int(conf) for conf in data['conf'] if int(conf) > 0]
-            avg_confidence = sum(confidences) / len(confidences) if confidences else 0
+            # Get bounding boxes for text blocks
+            data = pytesseract.image_to_data(file_path, config=config, output_type=pytesseract.Output.DICT)
             
-            # Create text blocks
-            text_blocks = []
-            for i, word in enumerate(data['text']):
-                if word.strip() and int(data['conf'][i]) > 0:
-                    text_blocks.append({
-                        "text": word,
-                        "confidence": int(data['conf'][i]) / 100.0,
-                        "bbox": [
-                            data['left'][i],
-                            data['top'][i],
-                            data['left'][i] + data['width'][i],
-                            data['top'][i] + data['height'][i]
-                        ]
-                    })
+            blocks = []
+            for i in range(len(data['text'])):
+                if data['conf'][i] > 0:  # Filter out low confidence results
+                    block = {
+                        'text': data['text'][i],
+                        'confidence': data['conf'][i] / 100.0,
+                        'bbox': {
+                            'x': data['left'][i],
+                            'y': data['top'][i],
+                            'width': data['width'][i],
+                            'height': data['height'][i]
+                        },
+                        'block_num': data['block_num'][i],
+                        'line_num': data['line_num'][i]
+                    }
+                    blocks.append(block)
             
             return {
-                "text": text.strip(),
-                "confidence": avg_confidence / 100.0,
-                "blocks": text_blocks,
-                "language": language,
-                "model": "tesseract"
+                'text': text.strip(),
+                'blocks': blocks,
+                'confidence': sum(block['confidence'] for block in blocks) / len(blocks) if blocks else 0
             }
             
         except Exception as e:
-            logger.error(f"Tesseract extraction failed: {e}")
+            logger.error(f"Tesseract OCR failed: {str(e)}")
             raise
     
-    async def _mock_ocr_extract(self, image_array: np.ndarray, language: str) -> Dict[str, Any]:
-        """Mock OCR extraction for development"""
-        await asyncio.sleep(0.5)  # Simulate processing time
-        
-        # Generate mock text based on image characteristics
-        height, width = image_array.shape[:2]
-        
-        if width > height:
-            mock_text = "This is a sample document with horizontal text layout."
-        else:
-            mock_text = "Sample vertical text content extracted from image."
-        
-        return {
-            "text": mock_text,
-            "confidence": 0.75,
-            "blocks": [
-                {
-                    "text": mock_text,
-                    "confidence": 0.75,
-                    "bbox": [50, 50, width-50, height-50]
+    def _google_vision_ocr(self, file_path: Union[str, Path], options: Optional[Dict]) -> Dict:
+        """Extract text using Google Cloud Vision API"""
+        try:
+            # Initialize client
+            client = vision.ImageAnnotatorClient()
+            
+            # Read image file
+            with open(file_path, 'rb') as image_file:
+                content = image_file.read()
+            
+            image = vision.Image(content=content)
+            
+            # Perform text detection
+            response = client.text_detection(image=image)
+            texts = response.text_annotations
+            
+            if not texts:
+                return {'text': '', 'blocks': [], 'confidence': 0}
+            
+            # Full text is the first element
+            full_text = texts[0].description
+            
+            # Extract individual text blocks
+            blocks = []
+            for text in texts[1:]:  # Skip first element (full text)
+                block = {
+                    'text': text.description,
+                    'confidence': 0.9,  # Google doesn't provide confidence scores
+                    'bbox': {
+                        'x': text.bounding_poly.vertices[0].x,
+                        'y': text.bounding_poly.vertices[0].y,
+                        'width': text.bounding_poly.vertices[2].x - text.bounding_poly.vertices[0].x,
+                        'height': text.bounding_poly.vertices[2].y - text.bounding_poly.vertices[0].y
+                    }
                 }
-            ],
-            "language": language,
-            "model": "mock-ocr"
+                blocks.append(block)
+            
+            return {
+                'text': full_text,
+                'blocks': blocks,
+                'confidence': 0.9
+            }
+            
+        except Exception as e:
+            logger.error(f"Google Vision OCR failed: {str(e)}")
+            raise
+    
+    def _azure_vision_ocr(self, file_path: Union[str, Path], options: Optional[Dict]) -> Dict:
+        """Extract text using Azure Computer Vision API"""
+        try:
+            # Initialize client
+            endpoint = os.getenv('AZURE_VISION_ENDPOINT')
+            key = os.getenv('AZURE_VISION_KEY')
+            
+            if not endpoint or not key:
+                raise ValueError("Azure Vision credentials not configured")
+            
+            client = ComputerVision.ComputerVisionClient(endpoint, ComputerVision.ApiKeyCredentials(key))
+            
+            # Read image file
+            with open(file_path, 'rb') as image_file:
+                image_data = image_file.read()
+            
+            # Perform OCR
+            result = client.recognize_printed_text_in_stream(image_data)
+            
+            # Extract text and blocks
+            full_text = ""
+            blocks = []
+            
+            for region in result.regions:
+                for line in region.lines:
+                    line_text = ""
+                    for word in line.words:
+                        word_text = word.text
+                        line_text += word_text + " "
+                        
+                        # Add word block
+                        bbox = word.bounding_box
+                        block = {
+                            'text': word_text,
+                            'confidence': 0.9,  # Azure doesn't provide confidence scores
+                            'bbox': {
+                                'x': bbox[0],
+                                'y': bbox[1],
+                                'width': bbox[2] - bbox[0],
+                                'height': bbox[3] - bbox[1]
+                            }
+                        }
+                        blocks.append(block)
+                    
+                    full_text += line_text.strip() + "\n"
+            
+            return {
+                'text': full_text.strip(),
+                'blocks': blocks,
+                'confidence': 0.9
+            }
+            
+        except Exception as e:
+            logger.error(f"Azure Vision OCR failed: {str(e)}")
+            raise
+    
+    def get_available_providers(self) -> List[Dict]:
+        """Get list of available OCR providers"""
+        providers = []
+        
+        if TESSERACT_AVAILABLE:
+            providers.append({
+                'id': 'tesseract',
+                'name': 'Tesseract OCR',
+                'description': 'Open-source OCR engine',
+                'premium': False,
+                'features': ['Text extraction', 'Bounding boxes', 'Confidence scores']
+            })
+        
+        if GOOGLE_VISION_AVAILABLE:
+            providers.append({
+                'id': 'google',
+                'name': 'Google Cloud Vision',
+                'description': 'Cloud-based OCR with high accuracy',
+                'premium': True,
+                'features': ['High accuracy', 'Layout analysis', 'Multiple languages']
+            })
+        
+        if AZURE_VISION_AVAILABLE:
+            providers.append({
+                'id': 'azure',
+                'name': 'Azure Computer Vision',
+                'description': 'Microsoft cloud OCR service',
+                'premium': True,
+                'features': ['High accuracy', 'Layout analysis', 'Handwriting recognition']
+            })
+        
+        return providers
+    
+    def get_supported_formats(self) -> List[str]:
+        """Get list of supported file formats"""
+        return self.supported_formats.copy()
+    
+    def get_health_status(self) -> Dict:
+        """Get health status of OCR service"""
+        return {
+            'status': 'healthy',
+            'available_providers': len(self.available_providers),
+            'default_provider': self.default_provider,
+            'supported_formats': self.supported_formats,
+            'max_file_size': self.max_file_size
         }
-    
-    async def batch_process(
-        self,
-        image_files: List[bytes],
-        language: str = "en",
-        model: str = "easyocr"
-    ) -> List[Dict[str, Any]]:
-        """Process multiple images in batch"""
-        results = []
-        
-        for image_data in image_files:
-            try:
-                result = await self.extract_text(image_data, language, model)
-                results.append(result)
-            except Exception as e:
-                logger.error(f"Batch OCR processing failed for image: {e}")
-                results.append({
-                    "text": "",
-                    "confidence": 0.0,
-                    "blocks": [],
-                    "language": language,
-                    "model": model,
-                    "error": str(e)
-                })
-        
-        return results
-    
-    def get_supported_languages(self) -> List[Dict[str, str]]:
-        """Get list of supported OCR languages"""
-        return [
-            {"code": "en", "name": "English", "native_name": "English"},
-            {"code": "es", "name": "Spanish", "native_name": "Español"},
-            {"code": "fr", "name": "French", "native_name": "Français"},
-            {"code": "de", "name": "German", "native_name": "Deutsch"},
-            {"code": "it", "name": "Italian", "native_name": "Italiano"},
-            {"code": "pt", "name": "Portuguese", "native_name": "Português"},
-            {"code": "ru", "name": "Russian", "native_name": "Русский"},
-            {"code": "ja", "name": "Japanese", "native_name": "日本語"},
-            {"code": "ko", "name": "Korean", "native_name": "한국어"},
-            {"code": "zh", "name": "Chinese", "native_name": "中文"},
-            {"code": "ar", "name": "Arabic", "native_name": "العربية"},
-            {"code": "hi", "name": "Hindi", "native_name": "हिन्दी"}
-        ]
 
 # Global OCR service instance
 ocr_service = OCRService()

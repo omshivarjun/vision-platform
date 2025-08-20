@@ -47,7 +47,7 @@ The Vision Platform is a comprehensive, production-ready monorepo that successfu
 - ✅ **MongoDB**: Running on port 27017
 - ✅ **Redis**: Running on port 6379
 - ✅ **MinIO**: Running on ports 9000-9001
-- ✅ **API Service**: Running on port 3001
+- ✅ **API Service**: Running on port 3001 (with several stub endpoints)
 - ✅ **AI Service**: Running on port 8000
 - ✅ **Web App**: Running on port 5173
 
@@ -132,10 +132,10 @@ The Vision Platform is a comprehensive, production-ready monorepo that successfu
 ## 🔮 Next Steps & Enhancements
 
 ### Immediate Priorities
-1. **Complete AI Integration**: Connect frontend to actual AI endpoints
-2. **Database Seeding**: Add sample data and user accounts
-3. **Testing Implementation**: Add comprehensive test coverage
-4. **CI/CD Pipeline**: GitHub Actions workflow setup
+1. **CI/CD Pipeline**: Add `.github/workflows/ci.yml` for install/build/test
+2. **Testing Implementation**: Add basic API endpoint tests (200 + JSON shape)
+3. **Frontend UX**: Replace duplicate toasts with aria-live region and dedup wrapper
+4. **Document Flow**: Ensure uploads hit `/api/documents` and show processing/progress
 
 ### Feature Enhancements
 1. **Real-time Translation**: Socket.io live translation
