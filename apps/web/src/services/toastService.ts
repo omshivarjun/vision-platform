@@ -1,6 +1,5 @@
 import React from 'react'
 import { toastSuccess, toastError, toastCritical, toastInfo, toastWarning, clearToastCache, getToastStats } from '../utils/toast'
-import { useAccessibilityAnnouncer } from '../components/AccessibilityAnnouncer'
 
 /**
  * Toast Service Configuration
@@ -39,8 +38,16 @@ export class ToastService {
    */
   success(message: string, options?: any) {
     if (this.shouldShowToast(message, 'success')) {
-      this.announceToScreenReader(message, 'polite')
-      return toastSuccess(message, options)
+      const toastId = toastSuccess(message, options)
+      if (toastId) {
+        this.activeToasts.add(toastId.toString())
+        this.announceToScreenReader(`Success: ${message}`, 'polite')
+        // Auto-remove from active toasts after duration
+        setTimeout(() => {
+          this.activeToasts.delete(toastId.toString())
+        }, options?.duration || 4000)
+      }
+      return toastId
     }
     return null
   }
@@ -50,8 +57,16 @@ export class ToastService {
    */
   error(message: string, options?: any) {
     if (this.shouldShowToast(message, 'error')) {
-      this.announceToScreenReader(message, 'assertive')
-      return toastError(message, options)
+      const toastId = toastError(message, options)
+      if (toastId) {
+        this.activeToasts.add(toastId.toString())
+        this.announceToScreenReader(`Error: ${message}`, 'assertive')
+        // Auto-remove from active toasts after duration
+        setTimeout(() => {
+          this.activeToasts.delete(toastId.toString())
+        }, options?.duration || 4000)
+      }
+      return toastId
     }
     return null
   }
@@ -60,9 +75,20 @@ export class ToastService {
    * Show a critical error toast that bypasses deduplication
    */
   critical(message: string, options?: any) {
-    // Critical errors always bypass deduplication
-    this.announceToScreenReader(message, 'assertive')
-    return toastCritical(message, options)
+    // Critical errors always bypass deduplication if configured
+    if (this.config.criticalErrorBypass || this.shouldShowToast(message, 'critical')) {
+      const toastId = toastCritical(message, options)
+      if (toastId) {
+        this.activeToasts.add(toastId.toString())
+        this.announceToScreenReader(`Critical Error: ${message}`, 'assertive')
+        // Auto-remove from active toasts after duration
+        setTimeout(() => {
+          this.activeToasts.delete(toastId.toString())
+        }, options?.duration || 6000)
+      }
+      return toastId
+    }
+    return null
   }
 
   /**
@@ -140,21 +166,35 @@ export class ToastService {
     }
 
     const now = Date.now()
-    const lastShown = this.messageHistory.get(message) || 0
+    const messageKey = `${type}:${message}`
+    const lastShown = this.messageHistory.get(messageKey) || 0
     const timeSinceLastShown = now - lastShown
 
     // Check if message is within deduplication window
     if (timeSinceLastShown < this.config.deduplicationWindowMs) {
+      console.debug(`Toast deduplicated: ${message} (shown ${timeSinceLastShown}ms ago)`)
       return false
     }
 
     // Check if we've reached max toast limit
     if (this.activeToasts.size >= this.config.maxToasts) {
-      return false
+      // Remove oldest toast if at limit
+      const oldest = this.activeToasts.values().next().value
+      if (oldest) {
+        this.activeToasts.delete(oldest)
+      }
     }
 
     // Update message history
-    this.messageHistory.set(message, now)
+    this.messageHistory.set(messageKey, now)
+    
+    // Clean up old history entries
+    for (const [key, time] of this.messageHistory.entries()) {
+      if (now - time > this.config.deduplicationWindowMs * 2) {
+        this.messageHistory.delete(key)
+      }
+    }
+    
     return true
   }
 
@@ -166,13 +206,24 @@ export class ToastService {
       return
     }
 
-    // This would integrate with the AccessibilityAnnouncer component
-    // For now, we'll use a simple approach
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      const utterance = new SpeechSynthesisUtterance(message)
-      utterance.volume = 0.5
-      utterance.rate = 0.9
-      window.speechSynthesis.speak(utterance)
+    // Create an aria-live region for screen reader announcements
+    if (typeof window !== 'undefined') {
+      const announcer = document.createElement('div')
+      announcer.setAttribute('aria-live', priority)
+      announcer.setAttribute('aria-atomic', 'true')
+      announcer.style.position = 'absolute'
+      announcer.style.left = '-10000px'
+      announcer.style.width = '1px'
+      announcer.style.height = '1px'
+      announcer.style.overflow = 'hidden'
+      
+      document.body.appendChild(announcer)
+      announcer.textContent = message
+      
+      // Remove after announcement
+      setTimeout(() => {
+        document.body.removeChild(announcer)
+      }, 1000)
     }
   }
 }
@@ -182,33 +233,9 @@ export class ToastService {
  */
 export const useToastService = () => {
   const [toastService] = React.useState(() => new ToastService())
-  const { announceAssertive, announcePolite } = useAccessibilityAnnouncer()
 
-  const enhancedToastService = React.useMemo(() => ({
-    ...toastService,
-    success: (message: string, options?: any) => {
-      announcePolite(`Success: ${message}`)
-      return toastService.success(message, options)
-    },
-    error: (message: string, options?: any) => {
-      announceAssertive(`Error: ${message}`)
-      return toastService.error(message, options)
-    },
-    critical: (message: string, options?: any) => {
-      announceAssertive(`Critical Error: ${message}`)
-      return toastService.critical(message, options)
-    },
-    info: (message: string, options?: any) => {
-      announcePolite(`Information: ${message}`)
-      return toastService.info(message, options)
-    },
-    warning: (message: string, options?: any) => {
-      announcePolite(`Warning: ${message}`)
-      return toastService.warning(message, options)
-    }
-  }), [toastService, announceAssertive, announcePolite])
-
-  return enhancedToastService
+  // Return the toast service directly - announcements are handled internally
+  return toastService
 }
 
 // Export default instance

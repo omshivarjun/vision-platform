@@ -10,6 +10,7 @@ const authRoutes = require('./routes/auth');
 const translationRoutes = require('./routes/translation');
 const analyticsRoutes = require('./routes/analytics');
 const healthRoutes = require('./routes/health');
+const healthzRoutes = require('./routes/healthz');
 const configRoutes = require('./routes/config');
 // const gcpRoutes = require('./routes/gcp'); // Temporarily disabled for local development
 
@@ -80,6 +81,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/translation', translationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/health', healthRoutes);
+app.use('/api', healthzRoutes); // Health check at /api/healthz
 app.use('/api/config', configRoutes);
 // app.use('/api/gcp', gcpRoutes); // Temporarily disabled for local development
 

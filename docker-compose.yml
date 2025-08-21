@@ -15,6 +15,11 @@ services:
       - ./infrastructure/mongodb/init:/docker-entrypoint-initdb.d
     networks:
       - vision-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7.2-alpine
@@ -26,6 +31,11 @@ services:
       - redis_data:/data
     networks:
       - vision-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Object Storage (S3-compatible)
   minio:
@@ -43,6 +53,11 @@ services:
     command: server /data --console-address ":9001"
     networks:
       - vision-network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Backend API
   backend:
@@ -96,11 +111,20 @@ services:
       - ./backend/uploads:/app/uploads
       - ./backend/logs:/app/logs
     depends_on:
-      - mongodb
-      - redis
-      - minio
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     networks:
       - vision-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # AI Service
   ai-service:
@@ -133,11 +157,20 @@ services:
       - ./services/ai:/app
       - ai_models:/app/models
     depends_on:
-      - mongodb
-      - redis
-      - minio
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     networks:
       - vision-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # Web Frontend
   web:
@@ -159,8 +192,10 @@ services:
       - /app/node_modules
       - /app/.next
     depends_on:
-      - backend
-      - ai-service
+      backend:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
     networks:
       - vision-network
 
@@ -185,8 +220,10 @@ services:
       - ./apps/mobile:/app
       - /app/node_modules
     depends_on:
-      - backend
-      - ai-service
+      backend:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
     networks:
       - vision-network
 
@@ -202,9 +239,12 @@ services:
       - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./infrastructure/nginx/ssl:/etc/nginx/ssl
     depends_on:
-      - web
-      - backend
-      - ai-service
+      web:
+        condition: service_started
+      backend:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
     networks:
       - vision-network
 
@@ -232,7 +272,8 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_started
     networks:
       - vision-network
 

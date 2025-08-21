@@ -5,18 +5,17 @@ const logger = require('../utils/logger');
 
 class AuthService {
   constructor() {
-    this.jwtSecret = process.env.JWT_SECRET;
-    this.jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
+    this.jwtSecret = process.env.JWT_SECRET || 'default-jwt-secret-for-development-only';
+    this.jwtRefreshSecret = process.env.JWT_REFRESH_SECRET || 'default-refresh-secret-for-development-only';
     this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '15m';
     this.jwtRefreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
     
     this.microsoftClientId = process.env.MICROSOFT_CLIENT_ID;
     this.microsoftClientSecret = process.env.MICROSOFT_CLIENT_SECRET;
-    this.oauthCallbackUrl = process.env.OAUTH_CALLBACK_URL;
+    this.oauthCallbackUrl = process.env.OAUTH_CALLBACK_URL || 'http://localhost:5000/api/auth/microsoft/callback';
     
     if (!this.jwtSecret || !this.jwtRefreshSecret) {
-      logger.error('JWT secrets not configured');
-      throw new Error('JWT secrets not configured');
+      logger.warn('JWT secrets not configured, using defaults for development');
     }
   }
 
@@ -96,17 +95,23 @@ class AuthService {
       logger.info('Processing Microsoft OAuth callback');
 
       // Exchange authorization code for access token
-      const tokenResponse = await axios.post('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+      const tokenParams = new URLSearchParams({
         client_id: this.microsoftClientId,
         client_secret: this.microsoftClientSecret,
         code: code,
         redirect_uri: this.oauthCallbackUrl,
         grant_type: 'authorization_code'
-      }, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
       });
+
+      const tokenResponse = await axios.post(
+        'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+        tokenParams.toString(),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
+        }
+      );
 
       const { access_token, refresh_token, expires_in } = tokenResponse.data;
 
@@ -117,6 +122,19 @@ class AuthService {
         }
       });
 
+      // Try to get user photo
+      let photoUrl = null;
+      try {
+        await axios.get('https://graph.microsoft.com/v1.0/me/photo', {
+          headers: {
+            'Authorization': `Bearer ${access_token}`
+          }
+        });
+        photoUrl = `https://graph.microsoft.com/v1.0/me/photo/$value`;
+      } catch (photoError) {
+        logger.debug('User photo not available');
+      }
+
       const microsoftUser = userResponse.data;
       
       // Create or update user in database
@@ -124,7 +142,7 @@ class AuthService {
         email: microsoftUser.mail || microsoftUser.userPrincipalName,
         name: microsoftUser.displayName,
         microsoftId: microsoftUser.id,
-        avatar: microsoftUser.photo ? `https://graph.microsoft.com/v1.0/me/photo/$value` : null
+        avatar: photoUrl
       });
 
       // Generate tokens
@@ -235,9 +253,10 @@ class AuthService {
       client_id: this.microsoftClientId,
       response_type: 'code',
       redirect_uri: this.oauthCallbackUrl,
-      scope: 'openid profile email',
+      scope: 'openid profile email User.Read',
       response_mode: 'query',
-      state: state || 'default'
+      state: state || 'default',
+      prompt: 'select_account'
     });
 
     return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;

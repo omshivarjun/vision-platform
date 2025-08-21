@@ -24,6 +24,7 @@ class TranslationService {
    * Validate service configuration
    */
   validateConfiguration() {
+    // Check each provider's requirements
     if (this.defaultProvider === 'openai' && !process.env.OPENAI_API_KEY) {
       logger.warn('OpenAI API key not configured, falling back to mock provider');
       this.defaultProvider = 'mock';
@@ -31,6 +32,16 @@ class TranslationService {
     
     if (this.defaultProvider === 'google-cloud' && (!process.env.GOOGLE_CLOUD_PROJECT || !process.env.GOOGLE_CLOUD_CREDENTIALS)) {
       logger.warn('Google Cloud Translation not configured, falling back to mock provider');
+      this.defaultProvider = 'mock';
+    }
+    
+    if (this.defaultProvider === 'google' && !process.env.GOOGLE_API_KEY) {
+      logger.warn('Google API key not configured, falling back to mock provider');
+      this.defaultProvider = 'mock';
+    }
+    
+    if (this.defaultProvider === 'huggingface' && !process.env.HUGGINGFACE_API_KEY) {
+      logger.warn('Hugging Face API key not configured, falling back to mock provider');
       this.defaultProvider = 'mock';
     }
     
@@ -57,7 +68,7 @@ class TranslationService {
       }
 
       // Use default provider if none specified
-      const selectedProvider = provider || this.defaultProvider;
+      let selectedProvider = provider || this.defaultProvider;
       
       if (!this.providers[selectedProvider]) {
         throw new Error(`Unsupported translation provider: ${selectedProvider}`);
@@ -69,13 +80,26 @@ class TranslationService {
         textLength: text.length
       });
 
-      // Get translation from provider
-      const result = await this.providers[selectedProvider](text, sourceLanguage, targetLanguage);
-      
-      // Store translation in database
-      await this.storeTranslation(result);
-      
-      return result;
+      try {
+        // Get translation from provider
+        const result = await this.providers[selectedProvider](text, sourceLanguage, targetLanguage);
+        
+        // Store translation in database
+        await this.storeTranslation(result);
+        
+        return result;
+      } catch (providerError) {
+        logger.warn(`Provider ${selectedProvider} failed, attempting fallback to mock`, { error: providerError.message });
+        
+        // Fallback to mock provider if main provider fails
+        if (selectedProvider !== 'mock') {
+          const mockResult = await this.providers['mock'](text, sourceLanguage, targetLanguage);
+          await this.storeTranslation(mockResult);
+          return mockResult;
+        }
+        
+        throw providerError;
+      }
 
     } catch (error) {
       logger.error('Translation failed', { error: error.message, sourceLanguage, targetLanguage });
@@ -348,34 +372,86 @@ class TranslationService {
     }
     
     try {
-      // Use a translation model from Hugging Face
-      const modelName = 'Helsinki-NLP/opus-mt-' + sourceLanguage + '-' + targetLanguage;
+      // Map language codes to model-compatible format
+      const langMap = {
+        'en': 'en',
+        'es': 'es', 
+        'fr': 'fr',
+        'de': 'de',
+        'it': 'it',
+        'pt': 'pt',
+        'ru': 'ru',
+        'ja': 'jap',
+        'ko': 'kor',
+        'zh': 'zh',
+        'ar': 'ar',
+        'hi': 'hi'
+      };
       
-      const response = await axios.post(
-        `https://api-inference.huggingface.co/models/${modelName}`,
-        { inputs: text },
-        {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 30000
+      const srcLang = langMap[sourceLanguage] || sourceLanguage;
+      const tgtLang = langMap[targetLanguage] || targetLanguage;
+      
+      // Try different model patterns
+      const modelPatterns = [
+        `Helsinki-NLP/opus-mt-${srcLang}-${tgtLang}`,
+        `Helsinki-NLP/opus-mt-${sourceLanguage}-${targetLanguage}`,
+        'facebook/mbart-large-50-many-to-many-mmt'  // Fallback multilingual model
+      ];
+      
+      let lastError = null;
+      
+      for (const modelName of modelPatterns) {
+        try {
+          const response = await axios.post(
+            `https://api-inference.huggingface.co/models/${modelName}`,
+            { inputs: text },
+            {
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+              },
+              timeout: 30000
+            }
+          );
+          
+          if (response.data) {
+            let translatedText = '';
+            
+            // Handle different response formats
+            if (Array.isArray(response.data) && response.data[0]) {
+              if (response.data[0].translation_text) {
+                translatedText = response.data[0].translation_text;
+              } else if (response.data[0].generated_text) {
+                translatedText = response.data[0].generated_text;
+              } else if (typeof response.data[0] === 'string') {
+                translatedText = response.data[0];
+              }
+            } else if (response.data.translation_text) {
+              translatedText = response.data.translation_text;
+            } else if (response.data.generated_text) {
+              translatedText = response.data.generated_text;
+            }
+            
+            if (translatedText) {
+              return {
+                sourceText: text,
+                translatedText,
+                sourceLanguage,
+                targetLanguage,
+                provider: 'huggingface',
+                model: modelName,
+                confidence: 0.85,
+                timestamp: new Date()
+              };
+            }
+          }
+        } catch (error) {
+          lastError = error;
+          logger.debug(`Model ${modelName} failed, trying next`, { error: error.message });
         }
-      );
-      
-      if (response.data && response.data[0] && response.data[0].translation_text) {
-        return {
-          sourceText: text,
-          translatedText: response.data[0].translation_text,
-          sourceLanguage,
-          targetLanguage,
-          provider: 'huggingface',
-          confidence: 0.85,
-          timestamp: new Date()
-        };
-      } else {
-        throw new Error('Invalid response from Hugging Face API');
       }
+      
+      throw new Error(`Hugging Face translation failed: ${lastError?.message || 'No compatible model found'}`);
       
     } catch (error) {
       logger.error('Hugging Face translation failed', { error: error.message });

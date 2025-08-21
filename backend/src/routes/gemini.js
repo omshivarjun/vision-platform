@@ -126,7 +126,6 @@ router.post('/generate-with-files', authenticateToken, async (req, res) => {
         errorType: result.errorType,
         timestamp: result.timestamp
       });
-      });
     }
 
   } catch (error) {
