@@ -1,7 +1,8 @@
 const request = require('supertest')
 const path = require('path')
 const fs = require('fs')
-const app = require('../../src/index')
+let app = require('../../src/index');
+if (app && app.default) app = app.default;
 
 describe('OCR Service Integration Tests', () => {
   let server

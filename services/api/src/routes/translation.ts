@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import { Translation } from '../models/Translation';
 import { User } from '../models/User';
 import axios from 'axios';
+import { getTranslationProvider } from '../lib/translationProvider';
 
 const router = Router();
 
@@ -72,27 +73,23 @@ router.post(
       const { text, sourceLanguage, targetLanguage, quality = 'balanced', context } = req.body;
       const startTime = Date.now();
 
-      // Call AI service for translation
-      const aiResponse = await axios.post(`${AI_SERVICE_URL}/ai/translation/translate`, {
-        text,
-        source_lang: sourceLanguage || 'auto',
-        target_lang: targetLanguage,
-        model: 'marian',
-        quality
-      });
+      const provider = getTranslationProvider();
+      if (!provider) {
+        return res.status(500).json({ success: false, error: { message: 'No translation provider configured' } });
+      }
 
       const processingTime = Date.now() - startTime;
-      const translationResult = aiResponse.data;
+      const translationResult = await provider.translate(text, targetLanguage, { sourceLanguage, quality, context });
 
-      // Save translation to database if user is authenticated
+    // Save translation to database if user is authenticated
       if (req.user) {
         const translation = new Translation({
           userId: req.user.id,
           sourceText: text,
-          translatedText: translationResult.translated_text,
-          sourceLanguage: translationResult.source_lang,
-          targetLanguage: translationResult.target_lang,
-          model: translationResult.model_used,
+      translatedText: translationResult.translatedText,
+      sourceLanguage: translationResult.sourceLang,
+      targetLanguage: translationResult.targetLang,
+      model: translationResult.modelUsed,
           confidence: translationResult.confidence,
           processingTime,
           quality,
@@ -106,17 +103,18 @@ router.post(
 
         await translation.save();
 
+
         // Update user's translation history
         await User.findByIdAndUpdate(req.user.id, {
           $push: {
             'preferences.translationHistory': {
               $each: [{
                 sourceText: text,
-                translatedText: translationResult.translated_text,
-                sourceLang: translationResult.source_lang,
-                targetLang: translationResult.target_lang,
+                translatedText: translationResult.translatedText,
+                sourceLang: translationResult.sourceLang,
+                targetLang: translationResult.targetLang,
                 timestamp: new Date(),
-                model: translationResult.model_used,
+                model: translationResult.modelUsed,
                 confidence: translationResult.confidence
               }],
               $slice: -100 // Keep only last 100 translations
@@ -127,8 +125,8 @@ router.post(
 
       logger.info('Translation completed', {
         userId: req.user?.id,
-        sourceLanguage: translationResult.source_lang,
-        targetLanguage: translationResult.target_lang,
+        sourceLanguage: translationResult.sourceLang,
+        targetLanguage: translationResult.targetLang,
         textLength: text.length,
         processingTime,
         confidence: translationResult.confidence
@@ -139,13 +137,13 @@ router.post(
         data: {
           id: Date.now().toString(),
           sourceText: text,
-          translatedText: translationResult.translated_text,
-          sourceLanguage: translationResult.source_lang,
-          targetLanguage: translationResult.target_lang,
+          translatedText: translationResult.translatedText,
+          sourceLanguage: translationResult.sourceLang,
+          targetLanguage: translationResult.targetLang,
           confidence: translationResult.confidence,
           processingTime,
           quality,
-          model: translationResult.model_used,
+          model: translationResult.modelUsed,
           timestamp: new Date().toISOString()
         }
       });
@@ -201,27 +199,40 @@ router.post(
       const { texts, sourceLanguage, targetLanguage, quality = 'balanced' } = req.body;
       const startTime = Date.now();
 
-      // Call AI service for batch translation
-      const aiResponse = await axios.post(`${AI_SERVICE_URL}/ai/translation/translate-batch`, {
-        texts,
-        source_lang: sourceLanguage,
-        target_lang: targetLanguage,
-        model: 'marian'
-      });
+      const provider = getTranslationProvider();
+      let batchResults;
+      if (provider.translateBatch) {
+        batchResults = await provider.translateBatch(texts, targetLanguage, { sourceLanguage, quality });
+      } else {
+        // Fallback to external AI service
+        const aiResponse = await axios.post(`${AI_SERVICE_URL}/ai/translation/translate-batch`, {
+          texts,
+          source_lang: sourceLanguage,
+          target_lang: targetLanguage,
+          model: 'marian'
+        });
+        batchResults = aiResponse.data.translations.map((t: any) => ({
+          translatedText: t.translated_text,
+          sourceLang: t.source_lang,
+          targetLang: t.target_lang,
+          modelUsed: t.model_used,
+          confidence: t.confidence,
+          processingTime: t.processing_time
+        }));
+      }
 
       const totalProcessingTime = Date.now() - startTime;
-      const batchResult = aiResponse.data;
 
       // Save translations to database
-      const translations = batchResult.translations.map((translation: any, index: number) => ({
+      const translations = batchResults.map((translation: any, index: number) => ({
         userId: req.user?.id,
         sourceText: texts[index],
-        translatedText: translation.translated_text,
-        sourceLanguage: translation.source_lang,
-        targetLanguage: translation.target_lang,
-        model: translation.model_used,
+        translatedText: translation.translatedText,
+        sourceLanguage: translation.sourceLang,
+        targetLanguage: translation.targetLang,
+        model: translation.modelUsed,
         confidence: translation.confidence,
-        processingTime: translation.processing_time,
+        processingTime: translation.processingTime || totalProcessingTime,
         quality,
         metadata: {
           ipAddress: req.ip,
@@ -244,9 +255,9 @@ router.post(
       res.json({
         success: true,
         data: {
-          translations: batchResult.translations,
-          totalProcessingTime: batchResult.total_processing_time,
-          successCount: batchResult.translations.length,
+          translations: batchResults,
+          totalProcessingTime,
+          successCount: batchResults.length,
           errorCount: 0
         }
       });
@@ -295,13 +306,17 @@ router.post(
     try {
       const { text, confidenceThreshold = 0.8 } = req.body;
 
-      // Call AI service for language detection
-      const aiResponse = await axios.post(`${AI_SERVICE_URL}/ai/translation/detect-language`, {
-        text,
-        confidence_threshold: confidenceThreshold
-      });
-
-      const result = aiResponse.data;
+      const provider = getTranslationProvider();
+      let result;
+      if (provider.detectLanguage) {
+        result = await provider.detectLanguage(text);
+      } else {
+        const aiResponse = await axios.post(`${AI_SERVICE_URL}/ai/translation/detect-language`, {
+          text,
+          confidence_threshold: confidenceThreshold
+        });
+        result = aiResponse.data;
+      }
 
       logger.info('Language detection completed', {
         userId: req.user?.id,
@@ -342,7 +357,14 @@ router.get(
   '/languages',
   asyncHandler(async (req, res) => {
     try {
-      // Call AI service for supported languages
+      const provider = getTranslationProvider();
+      if (provider.getSupportedLanguages) {
+        const langs = await provider.getSupportedLanguages();
+        res.json({ success: true, data: { languages: langs } });
+        return;
+      }
+
+      // Fallback
       const aiResponse = await axios.get(`${AI_SERVICE_URL}/ai/translation/supported-languages`);
       
       res.json({

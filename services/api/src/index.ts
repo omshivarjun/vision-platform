@@ -25,6 +25,9 @@ import { translationRoutes } from './routes/translation';
 import { accessibilityRoutes } from './routes/accessibility';
 import { userRoutes } from './routes/users';
 import { healthRoutes } from './routes/health';
+import { readinessRoutes } from './routes/readiness';
+import imageGenerationRouter from './routes/imageGeneration';
+import sentimentRouter from './routes/sentiment';
 import { setupWebSocket } from './websocket/setup';
 
 // Import types
@@ -99,14 +102,20 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Health check endpoint
+// Health check endpoints
 app.use('/health', healthRoutes);
+app.use('/healthz', healthRoutes);
+
+// Readiness endpoint
+app.use('/readyz', readinessRoutes);
 
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/translation', translationRoutes);
 app.use('/api/accessibility', accessibilityRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/image-generation', imageGenerationRouter);
+app.use('/api/sentiment', sentimentRouter);
 
 // API documentation
 app.get('/api-docs', (req: Request, res: Response) => {

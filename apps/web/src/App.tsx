@@ -17,10 +17,12 @@ import GeminiAssistantPage from './pages/GeminiAssistantPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import PaymentPage from './pages/PaymentPage'
 import ProfilePage from './pages/ProfilePage'
+
 import { AccessibilityPage } from './pages/AccessibilityPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import WorkspacePage from './pages/WorkspacePage'
+import MediaProcessingPage from './pages/MediaProcessingPage'
 
 // Create a client
 const queryClient = new QueryClient({
@@ -51,6 +53,7 @@ function App() {
               <Route path="/accessibility" element={<AccessibilityPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/media-processing" element={<MediaProcessingPage />} />
             </Routes>
           </main>
           <Footer />

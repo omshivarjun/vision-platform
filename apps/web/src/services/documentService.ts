@@ -16,7 +16,9 @@ export interface DocumentParseResult {
       level: number
     }>
     headings: string[]
-    paragraph  ocrResults?: {
+    paragraphs: string[]
+  }
+  ocrResults?: {
     confidence: number
     language: string
     provider: string
@@ -66,6 +68,7 @@ export interface DocumentUploadProgress {
   fileName: string
   progress: number
   status: 'uploading' | 'processing' | 'completed' | 'error'
+  message?: string
 }
 
 // Enhanced OCR result interface
@@ -143,7 +146,7 @@ export const documentService = {
       })) || []
 
       // Analyze document structure
-      const structure = this.analyzeDocumentStructure(ocrResult.text)
+  const structure = this.parseTextStructure(ocrResult.text)
 
       const result: DocumentParseResult = {
         text: ocrResult.text,
@@ -174,7 +177,7 @@ export const documentService = {
   },
 
   // Process uploaded file
-  async processDocument(file: File): Promise<DocumentParseResult> {romise<DocumentParseResult> {
+  async processDocument(file: File): Promise<DocumentParseResult> {
     const startTime = Date.now()
     
     try {
@@ -353,6 +356,9 @@ In a real implementation, this would use Tesseract.js, Google Vision API, or AWS
 
             const ocrResults = {
               confidence: 0.89,
+              language: 'en',
+              provider: 'mock',
+              processingTime: 0,
               textBlocks: [
                 {
                   text: 'This is simulated OCR text',

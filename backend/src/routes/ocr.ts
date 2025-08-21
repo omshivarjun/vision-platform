@@ -60,7 +60,7 @@ const upload = multer({
     if (SUPPORTED_FORMATS.includes(file.mimetype)) {
       cb(null, true)
     } else {
-      cb(new Error(`Unsupported file type: ${file.mimetype}`), false)
+      cb(new Error(`Unsupported file type: ${file.mimetype}`) as any, false)
     }
   }
 })
@@ -115,7 +115,7 @@ async function preprocessImage(filePath: string): Promise<string> {
       })
       .normalize()
       .sharpen({ sigma: 1, m1: 0.5, m2: 2, x1: 2, y2: 10 })
-      .modulate({ brightness: 1.1, contrast: 1.2 })
+      .modulate({ brightness: 1.1 })
       .png({ quality: 95, compressionLevel: 6 })
       .toFile(processedPath)
     
@@ -143,13 +143,7 @@ async function performTesseractOCR(
       processedPath,
       language,
       {
-        ...OCR_CONFIG.tesseractWorkerOptions,
-        tessedit_pageseg_mode: enableTableDetection ? 
-          Tesseract.PSM.AUTO : Tesseract.PSM.SINGLE_BLOCK,
-        tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
-        tessjs_create_hocr: '1',
-        tessjs_create_tsv: '1',
-        preserve_interword_spaces: '1'
+        ...OCR_CONFIG.tesseractWorkerOptions
       }
     )
 

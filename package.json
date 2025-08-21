@@ -60,8 +60,14 @@
   "author": "Vision Platform Team",
   "license": "MIT",
   "devDependencies": {
+    "@babel/preset-env": "^7.28.3",
+    "@babel/preset-react": "^7.27.1",
+    "@babel/preset-typescript": "^7.27.1",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.19.11",
     "@types/react": "^19.1.10",
+    "jest-environment-jsdom": "^30.0.5",
+    "ts-jest": "^29.4.1",
     "typescript": "^5.9.2"
   },
   "dependencies": {
@@ -93,6 +99,8 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-dropzone": "^14.3.8",
-    "react-pdf": "^10.0.1"
+    "react-pdf": "^10.0.1",
+    "supertest": "^7.1.4",
+    "zod": "^3.25.76"
   }
 }

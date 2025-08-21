@@ -35,11 +35,10 @@ const upload = multer({
       'image/png',
       'image/gif'
     ]
-    
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true)
     } else {
-      cb(new Error('Invalid file type'), false)
+      cb(new Error('Invalid file type') as any, false)
     }
   }
 })

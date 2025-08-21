@@ -4,6 +4,8 @@ import { authenticateToken, optionalAuth } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 import axios from 'axios';
+import FormData from 'form-data';
+import { post as aiPost } from '../lib/aiService';
 
 const router = Router();
 
@@ -50,15 +52,9 @@ router.post(
       formData.append('include_objects', includeObjects.toString());
       formData.append('include_text', includeText.toString());
 
-      const aiResponse = await axios.post(
-        `${AI_SERVICE_URL}/ai/accessibility/scene-description`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      );
+      const aiResponse = await aiPost('/ai/accessibility/scene-description', formData, {
+        headers: formData.getHeaders ? formData.getHeaders() : { 'Content-Type': 'multipart/form-data' }
+      });
 
       const result = aiResponse.data;
 
@@ -129,15 +125,7 @@ router.post(
       formData.append('confidence_threshold', confidence.toString());
       formData.append('max_objects', maxObjects.toString());
 
-      const aiResponse = await axios.post(
-        `${AI_SERVICE_URL}/ai/accessibility/object-detection`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      );
+      const aiResponse = await aiPost('/ai/accessibility/object-detection', formData, { headers: formData.getHeaders ? formData.getHeaders() : { 'Content-Type': 'multipart/form-data' } });
 
       const result = aiResponse.data;
 
@@ -220,7 +208,7 @@ router.post(
             location: currentLocation
           },
           {
-            instruction: `Turn ${'left' || 'right'} onto Main Street`,
+            instruction: `Turn ${Math.random() > 0.5 ? 'left' : 'right'} onto Main Street`,
             distance: 200,
             duration: 240,
             maneuver: 'turn-left',

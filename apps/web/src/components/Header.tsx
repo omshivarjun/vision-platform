@@ -37,6 +37,7 @@ export function Header() {
     { name: 'Home', href: '/', current: location.pathname === '/' },
     { name: 'Translation', href: '/translation', current: location.pathname === '/translation' },
     { name: 'Documents', href: '/documents', current: location.pathname === '/documents' },
+    { name: 'Media Processing', href: '/media-processing', current: location.pathname === '/media-processing' },
     { name: 'AI Assistant', href: '/assistant', current: location.pathname === '/assistant' },
     { name: 'Analytics', href: '/analytics', current: location.pathname === '/analytics' },
     { name: 'Payment', href: '/payment', current: location.pathname === '/payment' },

@@ -4,20 +4,19 @@ import Redis from 'redis';
 // MongoDB connection
 export async function connectDB() {
   try {
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://admin:password123@localhost:27017/vision_platform?authSource=admin';
-    
+    let mongoUri = process.env.MONGODB_URI || 'mongodb://admin:password123@localhost:27017/vision_platform?authSource=admin';
+    if (process.env.NODE_ENV === 'test' && process.env.TEST_MONGODB_URI) {
+      mongoUri = process.env.TEST_MONGODB_URI;
+    }
     await mongoose.connect(mongoUri);
     console.log('✅ Connected to MongoDB');
-    
     // Handle connection events
     mongoose.connection.on('error', (err) => {
       console.error('MongoDB connection error:', err);
     });
-    
     mongoose.connection.on('disconnected', () => {
       console.log('MongoDB disconnected');
     });
-    
   } catch (error) {
     console.error('❌ MongoDB connection failed:', error);
     process.exit(1);

@@ -1,7 +1,9 @@
 import { toast } from 'react-hot-toast'
 
 // Base API configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'
+const API_BASE_URL = (typeof process !== 'undefined' && process.env && process.env.VITE_API_BASE_URL)
+  ? process.env.VITE_API_BASE_URL
+  : 'http://localhost:3001/api'
 const API_TIMEOUT = 30000 // 30 seconds
 
 // API response types
@@ -674,7 +676,20 @@ export const translationApi = {
     if (filters?.offset) params.append('offset', filters.offset.toString())
 
     return apiClient.get<{
-     // Enhanced OCR API with table detection and cloud providers
+      entries: Array<{
+        id: string
+        sourceText: string
+        translatedText: string
+        sourceLanguage: string
+        targetLanguage: string
+        createdAt: string
+      }>
+      total: number
+    }>(`/translation/history/${userId}?${params.toString()}`)
+  },
+}
+
+// Enhanced OCR API with table detection and cloud providers
 export const ocrApi = {
   async extractText(file: File, options?: {
     language?: string

@@ -1,0 +1,37 @@
+// Prisma schema for initial Postgres pilot (users + translations)
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  // Add other fields as needed when migrating
+  translations Translation[]
+}
+
+model Translation {
+  id            String   @id @default(uuid())
+  userId        String?  @db.Uuid
+  user          User?    @relation(fields: [userId], references: [id])
+  sourceText    String
+  translatedText String
+  sourceLanguage String?
+  targetLanguage String?
+  model         String?
+  confidence    Float?
+  processingTime Int?
+  quality       String?
+  context       String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+}

@@ -282,7 +282,9 @@ export function UnifiedWorkspace({ className = '' }: UnifiedWorkspaceProps) {
       })
       setTranslatedText(result.translatedText)
       
-      analyticsService.trackTranslation(sourceLanguage, targetLanguage, {
+      analyticsService.trackEvent('translation', {
+        sourceLanguage,
+        targetLanguage, 
         text_length: inputText.length,
         success: true,
         source: 'unified_workspace'
@@ -515,11 +517,17 @@ export function UnifiedWorkspace({ className = '' }: UnifiedWorkspaceProps) {
               </div>
               
               <div className="space-y-2">
-                {processedDocuments.map((doc, index) => (
+                {processedDocuments.map((doc, index) => {
+                  // Safety check for doc structure
+                  if (!doc || !doc.metadata) {
+                    return null;
+                  }
+                  
+                  return (
                   <div
                     key={index}
                     className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                      currentDocument?.metadata.fileName === doc.metadata.fileName
+                      currentDocument?.metadata?.fileName === doc.metadata.fileName
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                         : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                     }`}
@@ -535,7 +543,8 @@ export function UnifiedWorkspace({ className = '' }: UnifiedWorkspaceProps) {
                       {documentService.formatFileSize(doc.metadata.fileSize)} • {doc.metadata.fileType.split('/')[1].toUpperCase()}
                     </div>
                   </div>
-                ))}
+                  )
+                })}
                 
                 {processedDocuments.length === 0 && (
                   <div className="text-center text-gray-500 dark:text-gray-400 py-8">

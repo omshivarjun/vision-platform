@@ -1,19 +1,19 @@
 module.exports = {
+  preset: 'ts-jest',
   testEnvironment: 'node',
   testMatch: [
-    '**/__tests__/**/*.js',
-    '**/?(*.)+(spec|test).js',
-    '**/tests/**/*.js'
+    '<rootDir>/test/**/*.test.ts',
+    '<rootDir>/test/**/*.spec.ts'
   ],
+  moduleFileExtensions: ['ts', 'js', 'json'],
   collectCoverageFrom: [
-    'src/**/*.js',
-    '!src/**/*.test.js',
-    '!src/**/*.spec.js'
+    'src/**/*.ts',
+    '!src/**/*.test.ts',
+    '!src/**/*.spec.ts'
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   testTimeout: 30000,
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
   verbose: true,
   forceExit: true,
   clearMocks: true,

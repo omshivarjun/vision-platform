@@ -4,6 +4,7 @@ import { authenticateToken } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 import axios from 'axios';
+import { post as aiPost } from '../lib/aiService';
 
 const router = Router();
 
@@ -76,8 +77,9 @@ router.post(
     try {
       const { language = 'auto' } = req.body;
       
-      // Mock OCR processing - replace with actual AI service call
-      const mockResult = {
+  // Use aiService wrapper (will return mock when TRANSLATION_PROVIDER=mock)
+  const aiResponse = await aiPost('/ai/ocr/extract', { /* form data would go here */ });
+  const mockResult = aiResponse?.data || {
         text: 'Sample text extracted from image',
         confidence: 0.88,
         language: language === 'auto' ? 'en' : language,

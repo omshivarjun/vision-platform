@@ -1,4 +1,9 @@
+
 import React from 'react';
+import { ImageGeneration } from '../components/ImageGeneration';
+import { TTSComponent } from '../components/TTSComponent';
+import { SentimentAnalysis } from '../components/SentimentAnalysis';
+import { TTSComponent } from '../components/TTSComponent';
 
 const DashboardPage: React.FC = () => {
   return (
@@ -96,6 +101,30 @@ const DashboardPage: React.FC = () => {
               <button className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors">
                 Settings
               </button>
+            </div>
+          </div>
+
+          {/* Image Generation Section */}
+          <div className="mt-12">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">AI Image Generation</h2>
+            <div className="bg-white shadow rounded-lg p-6 mb-12">
+              <ImageGeneration />
+            </div>
+          </div>
+
+          {/* Text-to-Speech Section */}
+          <div className="mt-12">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Text-to-Speech</h2>
+            <div className="bg-white shadow rounded-lg p-6 mb-12">
+              <TTSComponent />
+            </div>
+          </div>
+
+          {/* Sentiment Analysis Section */}
+          <div className="mt-12">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Sentiment Analysis</h2>
+            <div className="bg-white shadow rounded-lg p-6">
+              <SentimentAnalysis />
             </div>
           </div>
         </div>

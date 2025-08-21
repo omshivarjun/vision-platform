@@ -35,6 +35,18 @@ MANIFEST
 .env.development.local
 .env.test.local
 .env.production.local
+.env.backup
+*.env
+*/.env
+repo/apps/web/.env
+
+# API Keys and Secrets
+jwt_secret.txt
+jwt_refresh_secret.txt
+service-account-*.json
+credentials.json
+config/secrets/
+secrets/
 
 # Logs
 logs/
