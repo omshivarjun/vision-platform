@@ -28,13 +28,19 @@ import { healthRoutes } from './routes/health';
 import { readinessRoutes } from './routes/readiness';
 import imageGenerationRouter from './routes/imageGeneration';
 import sentimentRouter from './routes/sentiment';
+import ocrRouter from './routes/ocr';
+import ttsRouter from './routes/tts';
 import { setupWebSocket } from './websocket/setup';
+import swaggerUi from 'swagger-ui-express';
+import fs from 'fs';
+import path from 'path';
+import YAML from 'yaml';
 
 // Import types
-import { Express, Request, Response, NextFunction } from 'express';
+// Avoid importing Express namespace types to prevent TS conflicts
 
 // Create Express app
-const app: Express = express();
+const app = express();
 const server = createServer(app);
 
 // Create Socket.io server
@@ -97,8 +103,8 @@ if (NODE_ENV === 'development') {
 }
 
 // Request logging
-app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+app.use((req, _res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
 });
 
@@ -116,25 +122,22 @@ app.use('/api/accessibility', accessibilityRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/image-generation', imageGenerationRouter);
 app.use('/api/sentiment', sentimentRouter);
+app.use('/api/ocr', ocrRouter);
+app.use('/api/tts', ttsRouter);
 
 // API documentation
-app.get('/api-docs', (req: Request, res: Response) => {
-  res.json({
-    message: 'Vision Platform API Documentation',
-    version: '1.0.0',
-    endpoints: {
-      auth: '/api/auth',
-      translation: '/api/translation',
-      accessibility: '/api/accessibility',
-      users: '/api/users',
-      health: '/health'
-    },
-    documentation: '/api/docs'
-  });
-});
+// Serve Swagger UI from YAML spec
+try {
+  const swaggerPath = path.join(__dirname, 'swagger', 'swagger.yaml');
+  const swaggerFile = fs.readFileSync(swaggerPath, 'utf8');
+  const swaggerDoc = YAML.parse(swaggerFile);
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDoc));
+} catch (e) {
+  console.warn('Swagger spec not found or failed to load:', (e as Error).message);
+}
 
 // Root endpoint
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (_req, res) => {
   res.json({
     message: 'Vision Platform Backend API',
     version: '1.0.0',

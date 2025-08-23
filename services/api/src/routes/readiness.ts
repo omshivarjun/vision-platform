@@ -1,6 +1,7 @@
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
 import mongoose from 'mongoose';
 import Redis from 'redis';
+import { Storage } from '@google-cloud/storage';
 
 const router = Router();
 
@@ -31,14 +32,23 @@ async function checkRedis() {
   }
 }
 
+async function checkGCS() {
+  try {
+    const storage = new Storage();
+    const [buckets] = await storage.getBuckets({ maxResults: 1 });
+    return Array.isArray(buckets);
+  } catch {
+    return false;
+  }
+}
+
 // /readyz endpoint
-router.get('/readyz', async (req: Request, res: Response) => {
-  const mongoOk = await checkMongo();
-  const redisOk = await checkRedis();
-  if (mongoOk && redisOk) {
-    res.status(200).json({ status: 'ready', mongo: true, redis: true });
+router.get('/readyz', async (req, res) => {
+  const [mongoOk, redisOk, gcsOk] = await Promise.all([checkMongo(), checkRedis(), checkGCS()]);
+  if (mongoOk && redisOk && gcsOk) {
+    res.status(200).json({ status: 'ready', mongo: true, redis: true, gcs: true });
   } else {
-    res.status(503).json({ status: 'not ready', mongo: mongoOk, redis: redisOk });
+    res.status(503).json({ status: 'not ready', mongo: mongoOk, redis: redisOk, gcs: gcsOk });
   }
 });
 

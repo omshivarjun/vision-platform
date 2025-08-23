@@ -1,9 +1,9 @@
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
 
 const router = Router();
 
 // Health check endpoint (alias /healthz)
-router.get('/', (req: Request, res: Response) => {
+router.get('/', (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
@@ -13,7 +13,7 @@ router.get('/', (req: Request, res: Response) => {
   });
 });
 
-router.get('/healthz', (req: Request, res: Response) => {
+router.get('/healthz', (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
