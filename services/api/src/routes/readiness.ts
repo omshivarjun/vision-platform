@@ -43,7 +43,7 @@ async function checkGCS() {
 }
 
 // /readyz endpoint
-router.get('/readyz', async (req, res) => {
+router.get('/', async (req, res) => {
   const [mongoOk, redisOk, gcsOk] = await Promise.all([checkMongo(), checkRedis(), checkGCS()]);
   if (mongoOk && redisOk && gcsOk) {
     res.status(200).json({ status: 'ready', mongo: true, redis: true, gcs: true });

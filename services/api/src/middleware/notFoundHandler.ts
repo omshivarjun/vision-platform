@@ -1,10 +1,9 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { logger } from '../utils/logger';
 
 export function notFoundHandler(
   req: Request,
   res: Response,
-  next: NextFunction
 ): void {
   logger.warn('Route not found:', {
     method: req.method,

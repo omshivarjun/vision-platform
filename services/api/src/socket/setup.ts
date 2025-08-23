@@ -1,7 +1,7 @@
-import { Server, Socket } from 'socket.io';
+import type { Server, Socket } from 'socket.io';
 import { logger } from '../utils/logger';
 import jwt from 'jsonwebtoken';
-import { User } from '../models/User';
+import { User } from '@/models/User';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -242,9 +242,9 @@ export function setupSocketIO(io: Server): void {
   setInterval(() => {
     io.emit('system:heartbeat', {
       timestamp: new Date().toISOString(),
-      activeConnections: io.engine.clientsCount
+      activeConnections: (io as any).engine?.clientsCount,
     });
-  }, 30000); // Every 30 seconds
+  }, 30000);
 
   logger.info('Socket.IO setup completed');
 }

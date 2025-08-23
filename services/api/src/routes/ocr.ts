@@ -3,10 +3,18 @@ import { body, validationResult } from 'express-validator';
 import { authenticateToken } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
-import axios from 'axios';
-import { post as aiPost } from '../lib/aiService';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { Storage } from '@google-cloud/storage';
+import { v1 as visionV1 } from '@google-cloud/vision';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
+const storage = new Storage();
+const ocrClient = new visionV1.ImageAnnotatorClient();
+const bucketName = process.env.GCS_OCR_BUCKET || process.env.GCS_BUCKET || '';
+const ocrOutputPrefix = process.env.OCR_OUTPUT_PREFIX || 'ocr-results';
 
 /**
  * @swagger
@@ -59,57 +67,46 @@ const router = Router();
 router.post(
   '/extract',
   authenticateToken,
-  [
-    body('language').optional().isString().trim(),
-  ],
+  upload.single('image'),
+  [body('language').optional().isString().trim()],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: 'Validation failed',
-          details: errors.array(),
-        },
-      });
+      return res.status(400).json({ success: false, error: { message: 'Validation failed', details: errors.array() } });
     }
 
     try {
+      if (!bucketName) return res.status(500).json({ success: false, error: { message: 'GCS bucket not configured' } });
+      if (!req.file) return res.status(400).json({ success: false, error: { message: 'No image uploaded' } });
       const { language = 'auto' } = req.body;
-      
-  // Use aiService wrapper (will return mock when TRANSLATION_PROVIDER=mock)
-  const aiResponse = await aiPost('/ai/ocr/extract', { /* form data would go here */ });
-  const mockResult = aiResponse?.data || {
-        text: 'Sample text extracted from image',
-        confidence: 0.88,
-        language: language === 'auto' ? 'en' : language,
-        bounding_boxes: [
-          {
-            text: 'Sample text',
-            bbox: [10, 10, 200, 50],
-            confidence: 0.88,
-          },
-        ],
-      };
 
-      logger.info('OCR text extraction completed', {
-        userId: req.user?.id,
-        language,
-        confidence: mockResult.confidence,
-      });
+      const objectName = `uploads/ocr/${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(req.file.originalname) || '.bin'}`;
+      await storage.bucket(bucketName).file(objectName).save(req.file.buffer, { contentType: req.file.mimetype, public: false });
 
-      res.json({
-        success: true,
-        data: mockResult,
-      });
-    } catch (error) {
+      const gcsSourceUri = `gs://${bucketName}/${objectName}`;
+      const outputPrefix = `${ocrOutputPrefix}/${path.basename(objectName, path.extname(objectName))}`;
+      const gcsDestinationUri = `gs://${bucketName}/${outputPrefix}/`;
+
+      const features = [{ type: 'DOCUMENT_TEXT_DETECTION' }];
+      const inputConfig = { mimeType: req.file.mimetype, gcsSource: { uri: gcsSourceUri } };
+      const outputConfig = { gcsDestination: { uri: gcsDestinationUri } };
+      const request = { requests: [{ features, inputConfig, outputConfig }], parent: undefined } as any;
+
+      const [operation] = await ocrClient.asyncBatchAnnotateFiles(request);
+      const [filesResponse] = await operation.promise();
+      // The results are written to GCS as JSON. Read the first result file.
+      const [files] = await storage.bucket(bucketName).getFiles({ prefix: outputPrefix });
+      const first = files.find(f => f.name.endsWith('.json')) || files[0];
+      if (!first) return res.json({ success: true, data: { text: '', confidence: 0, language } });
+      const [jsonBuf] = await first.download();
+      const json = JSON.parse(jsonBuf.toString('utf8'));
+      const text = json?.responses?.[0]?.fullTextAnnotation?.text || '';
+
+      logger.info('OCR text extraction completed', { userId: req.user?.id, language, bytes: req.file.size });
+      res.json({ success: true, data: { text, confidence: 0.9, language, gcsObject: objectName, outputPrefix } });
+    } catch (error: any) {
       logger.error('OCR extraction failed', { error: error.message });
-      res.status(500).json({
-        success: false,
-        error: {
-          message: 'OCR processing failed',
-        },
-      });
+      res.status(500).json({ success: false, error: { message: 'OCR processing failed', details: error.message } });
     }
   })
 );
@@ -151,49 +148,33 @@ router.post(
   authenticateToken,
   [
     body('images').isArray({ min: 1, max: 10 }),
-    body('images.*.url').isURL(),
+    body('images.*.gcsObject').optional().isString(),
     body('images.*.language').optional().isString(),
   ],
   asyncHandler(async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          message: 'Validation failed',
-          details: errors.array(),
-        },
-      });
+      return res.status(400).json({ success: false, error: { message: 'Validation failed', details: errors.array() } });
     }
 
     try {
-      const { images } = req.body;
-      
-      // Mock batch processing
-      const batchId = `batch_${Date.now()}`;
-      
-      logger.info('OCR batch processing started', {
-        userId: req.user?.id,
-        batchId,
-        imageCount: images.length,
-      });
+      if (!bucketName) return res.status(500).json({ success: false, error: { message: 'GCS bucket not configured' } });
+      const { images } = req.body as { images: { gcsObject: string; language?: string }[] };
+      const features = [{ type: 'DOCUMENT_TEXT_DETECTION' }];
 
-      res.json({
-        success: true,
-        data: {
-          batchId,
-          status: 'processing',
-          totalImages: images.length,
-        },
-      });
-    } catch (error) {
+      const requests = images.map(img => ({
+        features,
+        inputConfig: { mimeType: 'application/pdf', gcsSource: { uri: `gs://${bucketName}/${img.gcsObject}` } },
+        outputConfig: { gcsDestination: { uri: `gs://${bucketName}/${ocrOutputPrefix}/${path.basename(img.gcsObject, path.extname(img.gcsObject))}/` } }
+      }));
+
+      const [operation] = await ocrClient.asyncBatchAnnotateFiles({ requests } as any);
+      await operation.promise();
+
+      res.json({ success: true, data: { status: 'completed', count: images.length } });
+    } catch (error: any) {
       logger.error('OCR batch processing failed', { error: error.message });
-      res.status(500).json({
-        success: false,
-        error: {
-          message: 'Batch processing failed',
-        },
-      });
+      res.status(500).json({ success: false, error: { message: 'Batch processing failed', details: error.message } });
     }
   })
 );

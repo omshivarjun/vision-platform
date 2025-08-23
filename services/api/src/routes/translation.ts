@@ -3,8 +3,8 @@ import { body, query, validationResult } from 'express-validator';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
-import { Translation } from '../models/Translation';
-import { User } from '../models/User';
+import { Translation } from '@/models/Translation';
+import { User } from '@/models/User';
 import axios from 'axios';
 import { getTranslationProvider } from '../lib/translationProvider';
 

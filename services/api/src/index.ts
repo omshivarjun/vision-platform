@@ -185,6 +185,7 @@ const startServer = async () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`🌍 Environment: ${NODE_ENV}`);
       console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
+  console.log(`📚 Swagger UI: http://localhost:${PORT}/docs`);
       console.log(`🔌 WebSocket: ws://localhost:${PORT}`);
     });
   } catch (error) {
