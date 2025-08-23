@@ -82,6 +82,44 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /readyz:
+    get:
+      tags:
+        - System
+      summary: Readiness check
+      description: Verify dependencies (MongoDB, Redis, GCS)
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  mongo:
+                    type: boolean
+                  redis:
+                    type: boolean
+                  gcs:
+                    type: boolean
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  mongo:
+                    type: boolean
+                  redis:
+                    type: boolean
+                  gcs:
+                    type: boolean
+
   /api/auth/register:
     post:
       tags:
@@ -305,6 +343,132 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ImageTranslationResponse'
+
+  /api/tts:
+    post:
+      tags:
+        - Translation
+      summary: Text-to-Speech synthesis
+      description: Synthesize speech from text using Google Cloud Text-to-Speech
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  maxLength: 5000
+                voice:
+                  type: string
+                  example: en-US-Wavenet-D
+                speakingRate:
+                  type: number
+                  default: 1.0
+                pitch:
+                  type: number
+                  default: 0
+      responses:
+        '200':
+          description: MP3 audio stream
+          content:
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+          headers:
+            X-GCS-Object:
+              schema:
+                type: string
+              description: GCS object path where audio was stored
+        '400':
+          description: Bad request
+
+  /api/ocr/extract:
+    post:
+      tags:
+        - Translation
+      summary: OCR text extraction
+      description: Extract text from an uploaded image or PDF using Google Cloud Vision
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                language:
+                  type: string
+      responses:
+        '200':
+          description: OCR extraction result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      text:
+                        type: string
+                      confidence:
+                        type: number
+                      language:
+                        type: string
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+
+  /api/ocr/batch:
+    post:
+      tags:
+        - Translation
+      summary: Batch OCR on GCS objects
+      description: Run OCR on multiple files already stored in GCS
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [images]
+              properties:
+                images:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      gcsObject:
+                        type: string
+                      language:
+                        type: string
+      responses:
+        '200':
+          description: Batch OCR started/completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+        '401':
+          description: Unauthorized
 
   /api/translation/conversation:
     post:
@@ -1254,43 +1418,4 @@ components:
             type: integer
             minimum: 0
 
-# Additional components for WebSocket support
-components:
-  schemas:
-    WebSocketMessage:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [translation, accessibility, navigation, error]
-        data:
-          type: object
-          additionalProperties: true
-        timestamp:
-          type: string
-          format: date-time
-        sessionId:
-          type: string
-
-    TranslationWebSocketMessage:
-      allOf:
-        - $ref: '#/components/schemas/WebSocketMessage'
-        - type: object
-          properties:
-            type:
-              const: translation
-            data:
-              $ref: '#/components/schemas/TranslationResponse'
-
-    AccessibilityWebSocketMessage:
-      allOf:
-        - $ref: '#/components/schemas/WebSocketMessage'
-        - type: object
-          properties:
-            type:
-              const: accessibility
-            data:
-              oneOf:
-                - $ref: '#/components/schemas/SceneDescriptionResponse'
-                - $ref: '#/components/schemas/ObjectDetectionResponse'
-                - $ref: '#/components/schemas/NavigationResponse'
+# (WebSocket component schemas removed to avoid duplicate components key; consider merging under components.schemas if needed.)
