@@ -984,3 +984,483 @@ Labels: testing, ci
 ---
 
 > Note: Items 51–100 will be appended in this file following the same structure (Problem/Plan, Firebase AI / CLI prompt, Shell test, Labels).
+
+---
+
+## 51 — Secret Manager & Config Hardening (GCP)
+
+- Problem: Secrets in env files; config drift.
+- Plan: Move sensitive configs to Google Secret Manager; load at boot with caching; add configuration schema validation (zod) and fallbacks for local dev.
+
+CLI prompt:
+
+Wire Google Secret Manager client; create config loader that fetches secrets (Stripe keys, SMTP, JWT secrets, service account JSON), caches in memory, validates with zod; update README to remove plaintext secrets.
+
+Shell test:
+
+```bash
+node -e "require('./scripts/print_config').print(['STRIPE_SECRET','JWT_SECRET'])"
+```
+
+Labels: security, infra
+
+---
+
+## 52 — Least-Privilege IAM & Service Accounts
+
+- Problem: Over-broad permissions on Cloud Run and buckets.
+- Plan: Create scoped service accounts per service (web, worker); grant minimal roles for GCS, Pub/Sub (if used), Secret Manager, and Logging.
+
+CLI prompt:
+
+Add IaC or scripts to create service accounts and bind roles; update Cloud Run deploy to use those identities; document required roles.
+
+Shell test:
+
+```bash
+gcloud run services describe vision-platform --region=us-central1 --format=json | jq '.spec.template.spec.serviceAccountName'
+```
+
+Labels: security, gcp
+
+---
+
+## 53 — Tracing & Logging (OpenTelemetry → Cloud Trace/Logging)
+
+- Problem: Hard to debug latency; logs unstructured.
+- Plan: Add OpenTelemetry SDK, pino structured logs, request IDs; export traces to Cloud Trace and logs to Cloud Logging with correlation.
+
+CLI prompt:
+
+Integrate OTel Node SDK with HTTP, MongoDB, and Redis instrumentations; emit pino logs with trace/span ids; add log fields for userId, orgId, plan.
+
+Shell test:
+
+```bash
+curl -I http://localhost:3000/healthz
+# Check Cloud Trace for recent spans
+```
+
+Labels: observability, gcp
+
+---
+
+## 54 — Error Monitoring & Source Maps (Sentry)
+
+- Problem: Errors lack stack context in prod.
+- Plan: Integrate Sentry for server and frontend, upload source maps in CI; keep DSN in Secret Manager.
+
+CLI prompt:
+
+Add Sentry init in server and frontend builds; configure CI to upload source maps; mask PII in breadcrumbs and events.
+
+Shell test:
+
+```bash
+curl http://localhost:3000/admin/test-error
+```
+
+Labels: monitoring, frontend, backend
+
+---
+
+## 55 — Request Logging & Correlation IDs
+
+- Problem: Inconsistent request tracing.
+- Plan: Add middleware to inject/request X-Request-Id, propagate to downstream calls (Mongo, Redis, Vertex), and include in logs and responses.
+
+CLI prompt:
+
+Create express middleware for request id; update axios/fetch wrappers to forward header; add response header.
+
+Shell test:
+
+```bash
+curl -I http://localhost:3000/readyz | grep -i x-request-id
+```
+
+Labels: observability
+
+---
+
+## 56 — Cloud Profiler & Debugger
+
+- Problem: CPU/memory hot spots unknown in prod.
+- Plan: Enable Cloud Profiler; guard with env flags and exclude local dev.
+
+CLI prompt:
+
+Initialize @google-cloud/profiler in server startup when enabled; document setup and expected overhead.
+
+Shell test:
+
+```bash
+echo "Verify profiles appear in Cloud Profiler UI"
+```
+
+Labels: performance, gcp
+
+---
+
+## 57 — GCS Lifecycle, Versioning, and KMS (CMEK)
+
+- Problem: Buckets lack lifecycle rules and CMEK.
+- Plan: Enable object versioning for critical buckets; add lifecycle to expire temp/preview audio; encrypt with KMS key.
+
+CLI prompt:
+
+Add bucket config scripts for lifecycle JSON, enable versioning, bind KMS key to bucket; update upload code to set storage class.
+
+Shell test:
+
+```bash
+gsutil lifecycle get gs://vision-storage
+```
+
+Labels: storage, security
+
+---
+
+## 58 — Field-Level Encryption for PII (MongoDB CSFLE)
+
+- Problem: PII stored unencrypted.
+- Plan: Use MongoDB Client-Side Field Level Encryption (CSFLE) with KMS; encrypt fields like emails, tokens, addresses.
+
+CLI prompt:
+
+Add CSFLE config with GCP KMS; define JSON schema for encrypted fields; migrate existing documents.
+
+Shell test:
+
+```bash
+node scripts/verify_csfle.js --collection users --field email
+```
+
+Labels: security, mongodb
+
+---
+
+## 59 — PII Redaction in Logs & Prompts
+
+- Problem: Logs and LLM prompts may include PII.
+- Plan: Add redaction utilities; scrub PII before logging and before sending to Vertex models; add allowlist-based prompt filters.
+
+CLI prompt:
+
+Create redactPII util; hook into logger and AI adapter; add tests covering edge cases.
+
+Shell test:
+
+```bash
+node -e "console.log(require('./lib/redact').redact('User email: a@b.com'))"
+```
+
+Labels: privacy, ai
+
+---
+
+## 60 — Prompt Templates & Registry (Firebase AI/Vertex)
+
+- Problem: Prompts scattered and unversioned.
+- Plan: Centralize prompt templates with versions and metadata; run via Vertex; expose admin UI to edit and A/B.
+
+CLI prompt:
+
+Create prompt_templates collection; add loader and renderer; support variables and guards; log usage and versions per call.
+
+Shell test:
+
+```bash
+curl -X POST http://localhost:3000/api/prompts/preview -d '{"name":"translate","vars":{"lang":"es"}}'
+```
+
+Labels: ai, backend
+
+---
+
+## 61 — Experiment Tracking (LLM Prompt/Model)
+
+- Problem: No experiment metadata.
+- Plan: Track runs with inputs, outputs, model, temperature, cost, latency; compare in UI.
+
+CLI prompt:
+
+Add experiments collection; instrument AI adapter to write run records; add simple compare endpoint.
+
+Shell test:
+
+```bash
+mongosh "$MONGODB_URI" --eval 'db.experiments.find().limit(1).pretty()'
+```
+
+Labels: ai, analytics
+
+---
+
+## 62 — Feature Flags & Safe Rollouts
+
+- Problem: Risky deploys; no gating.
+- Plan: Add feature_flags collection and middleware; SDK for frontend; support percentage rollouts and org/user targeting.
+
+CLI prompt:
+
+Build flag evaluation util; add admin endpoints; wire critical features behind flags.
+
+Shell test:
+
+```bash
+curl http://localhost:3000/api/flags/evaluate?flag=tts_beta&user=u1
+```
+
+Labels: ops, frontend, backend
+
+---
+
+## 63 — Blue/Green & Canary (Cloud Run Revisions)
+
+- Problem: All traffic to new versions instantly.
+- Plan: Use Cloud Run traffic splitting; add staged rollouts with quick rollback.
+
+CLI prompt:
+
+Add deploy script to set 5/20/50/100% traffic to new revision; document rollback steps.
+
+Shell test:
+
+```bash
+gcloud run services describe vision-platform --region=us-central1 --format=json | jq '.status.traffic'
+```
+
+Labels: deploy, gcp
+
+---
+
+## 64 — Autoscaling & Concurrency Tuning
+
+- Problem: Under/over-provisioned Cloud Run instances.
+- Plan: Tune concurrency per endpoint type; set min/max instances; set CPU always on for workers if needed.
+
+CLI prompt:
+
+Update Cloud Run service YAML; document recommended settings for web vs worker.
+
+Shell test:
+
+```bash
+gcloud run services describe vision-worker --region=us-central1 --format=json | jq '.spec.template.spec.containerConcurrency'
+```
+
+Labels: performance, gcp
+
+---
+
+## 65 — Cost Monitoring & Budgets
+
+- Problem: Costs can spike unnoticed.
+- Plan: Set GCP budgets and alerts; track per-feature usage and estimated cost; show dashboard.
+
+CLI prompt:
+
+Add cost_estimates collection; cron to aggregate usage→cost; surface admin widget.
+
+Shell test:
+
+```bash
+mongosh "$MONGODB_URI" --eval 'db.cost_estimates.find().limit(1).pretty()'
+```
+
+Labels: ops, billing
+
+---
+
+## 66 — Schedulers & Crons (Cloud Scheduler → HTTPS)
+
+- Problem: Ad-hoc cron scripts.
+- Plan: Use Cloud Scheduler to invoke secure HTTPS endpoints for nightly jobs (ETL, cleanup, re-embeddings).
+
+CLI prompt:
+
+Create /admin/jobs/* endpoints with auth; add scheduler configs; verify idempotency.
+
+Shell test:
+
+```bash
+curl -H "Authorization: Bearer <admin>" http://localhost:3000/admin/jobs/reindex
+```
+
+Labels: ops, gcp
+
+---
+
+## 67 — Web Security (CSP, CORS, CSRF, Helmet)
+
+- Problem: Missing security headers and CSRF protection.
+- Plan: Add helmet with strict CSP, rate CORS origins, CSRF tokens for mutating routes, and cookie hardening.
+
+CLI prompt:
+
+Integrate helmet; configure CSP (script-src nonce/hash); add CSRF middleware for HTML forms; secure cookies.
+
+Shell test:
+
+```bash
+curl -I http://localhost:3000 | grep -Ei "content-security-policy|x-frame-options|x-content-type-options"
+```
+
+Labels: security, web
+
+---
+
+## 68 — Supply Chain & Vulnerability Scanning
+
+- Problem: Outdated deps slip through.
+- Plan: Enable Dependabot; add npm audit CI gate; add container scanning (gcloud or Trivy).
+
+CLI prompt:
+
+Add GitHub config for Dependabot; add CI jobs for npm audit and Trivy on Docker image.
+
+Shell test:
+
+```bash
+trivy fs --exit-code 0 --severity HIGH,CRITICAL .
+```
+
+Labels: security, ci
+
+---
+
+## 69 — Secret Scanning (Pre-commit & CI)
+
+- Problem: Secret leaks to git history.
+- Plan: Add pre-commit hook and CI step using gitleaks; block pushes with detected secrets.
+
+CLI prompt:
+
+Add gitleaks.toml; configure Husky pre-commit; add CI job to run gitleaks.
+
+Shell test:
+
+```bash
+gitleaks detect --no-git -v
+```
+
+Labels: security, ci
+
+---
+
+## 70 — Frontend Performance Budgets & Lighthouse CI
+
+- Problem: Regressions in TTI/LCP unnoticed.
+- Plan: Add Lighthouse CI with budgets; block PRs on regressions; optimize images and code-splitting.
+
+CLI prompt:
+
+Add lighthouserc.json; CI job to run lhci against preview; add budgets file.
+
+Shell test:
+
+```bash
+npx lhci autorun
+```
+
+Labels: frontend, performance
+
+---
+
+## 71 — PWA: Offline & Installable
+
+- Problem: Poor offline experience.
+- Plan: Add service worker with Workbox, cache strategies for shell/content; add manifest and install prompts.
+
+CLI prompt:
+
+Integrate Workbox build; add manifest.json; handle update flow and cache busting.
+
+Shell test:
+
+```bash
+# Open app in Chrome, check Application → Service Workers
+```
+
+Labels: frontend, ux
+
+---
+
+## 72 — Internationalization (i18n)
+
+- Problem: UI not localized.
+- Plan: Add i18n framework (react-intl or i18next); externalize strings; translation pipeline using Firebase AI for drafts + human review.
+
+CLI prompt:
+
+Scaffold i18n provider, extract strings, seed locales; add translation review UI.
+
+Shell test:
+
+```bash
+npm run i18n:scan --prefix frontend
+```
+
+Labels: frontend, i18n
+
+---
+
+## 73 — Accessibility Tests (axe/jest-axe)
+
+- Problem: A11y regressions slip in.
+- Plan: Add jest-axe tests for key pages and CI gate; add storybook a11y addon if using Storybook.
+
+CLI prompt:
+
+Create basic axe tests for Workspace and PDF viewer; integrate into CI.
+
+Shell test:
+
+```bash
+npx jest -t "accessibility"
+```
+
+Labels: accessibility, testing
+
+---
+
+## 74 — Orchestrated OCR Pipelines (Workflows)
+
+- Problem: Multi-step OCR jobs hard to monitor.
+- Plan: Use Google Workflows to orchestrate GCS upload → Vision async → store results → notify; keep Redis queue for app tasks.
+
+CLI prompt:
+
+Add workflow YAML; add callback endpoint; document state transitions.
+
+Shell test:
+
+```bash
+gcloud workflows run ocr-pipeline --data='{"gcsUri":"gs://bucket/doc.pdf"}'
+```
+
+Labels: ocr, gcp
+
+---
+
+## 75 — Signed URLs & ACLs for Documents
+
+- Problem: Direct GCS access not controlled.
+- Plan: Generate V4 signed URLs for uploads/downloads; enforce org/user ACLs in Mongo; log access.
+
+CLI prompt:
+
+Add endpoints to mint signed URLs; check ACL before issuing; add audit log entry.
+
+Shell test:
+
+```bash
+curl -X POST http://localhost:3000/api/storage/signed-url -d '{"docId":"d1","action":"read"}'
+```
+
+Labels: security, storage
+
+---
+
+> Note: Items 76–100 will be appended in this file following the same structure (Problem/Plan, Firebase AI / CLI prompt, Shell test, Labels).
